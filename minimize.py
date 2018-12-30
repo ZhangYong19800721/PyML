@@ -11,14 +11,14 @@ def GradientDescend(F,D,L,W,datas,label,**options):
             D 数据参数（符号对象）
             L 标签参数（符号对象）
             W 模型参数（符号对象列表）
-            datas 训练数据（列表）
-            label 训练标签（列表）
+            datas 训练数据（numpy array）
+            label 训练标签（numpy array）
             w0 迭代的起始点（列表）
             options 梯度下降算法参数（字典）
     """
     # 设置默认参数
     if 'learn_rate' not in options:
-        options['learn_rate'] = 1e-3
+        options['learn_rate'] = 1e-4
         print(f"调用GradientDescend函数是未指定learn_rate参数，将使用默认值{options['learn_rate']}")
     
     if 'momentum' not in options:
@@ -33,10 +33,13 @@ def GradientDescend(F,D,L,W,datas,label,**options):
         options['epsilon_g'] = 1e-3
         print(f"调用GradientDescend函数是未指定epsilon_g参数，将使用默认值{options['epsilon_g']}")
  
-    G = T.grad(F,W) # 计算目标函数对待优化参数的梯度
+    G = T.grad(F,W) # 计算目标函数对W参数的梯度
+    #INC = [-options['learn_rate']*g for g in G]
     U = [(w,w - options['learn_rate']*g) for w,g in zip(W,G)] # 权值更新规则
-    NG = sum([g**2 for g in G])# 梯度模
-    train = theano.function([D,L],[F,NG],updates=U)
-    for step in range(1,options['max_step']+1):
+    GN = sum([(g**2).sum() for g in G]) # 梯度模
+    train = theano.function([D,L],[F,GN],updates=U)
+    for step in range(options['max_step']):
         object_value, gradient_norm = train(datas,label)
         print(f"迭代次数：{step}, 目标函数：{object_value}, 梯度模：{gradient_norm}")
+        if gradient_norm < options['epsilon_g']:
+            break
