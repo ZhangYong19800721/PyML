@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import matplotlib.pyplot as plt
 import numpy as np
 import theano
 import theano.tensor as T
@@ -18,27 +19,14 @@ y1 = 1/(1+T.exp(-n1))
 n2 = T.dot(y1,w2)+b2
 model = n2 # 网络的输出
 f_model = theano.function([datas],model)
-cost = 0.5 * ((model - label)**2).sum()
+cost = 0.5 * ((model - label)**2).sum() + 1e-5 * ((w1**2).sum() + (w2**2).sum())
 f_cost = theano.function([datas,label],cost)
 
 N = 2000
 train_datas = np.linspace(-np.pi,np.pi,N).reshape(N,1)
 train_label = np.sin(train_datas).reshape(N,1)
 
-z = f_model(train_datas)
-c = f_cost(train_datas,train_label)
+minimize.GradientDescend(cost,datas,label,weight,train_datas,train_label,max_step=1000000)
 
-#G = T.grad(cost,W) # 计算目标函数对W参数的梯度
-#U = [(w,w - 0.0001*g) for w,g in zip(W,G)] # 权值更新规则
-#train = theano.function([datas,label],cost,updates=U)
-#t1 = train(train_datas,train_label)
-#t2 = train(train_datas,train_label)
-#t3 = train(train_datas,train_label)
-#t4 = train(train_datas,train_label)
-#t5 = train(train_datas,train_label)
-#t6 = train(train_datas,train_label)
-#t7 = train(train_datas,train_label)
-#t8 = train(train_datas,train_label)
-#t9 = train(train_datas,train_label)
-
-minimize.GradientDescend(cost,datas,label,weight,train_datas,train_label,max_step=int(1e6))
+predict = f_model(train_datas)
+plt.plot(train_datas,train_label,'r',train_datas,predict,'g')
