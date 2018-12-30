@@ -41,4 +41,4 @@ c = f_cost(train_datas,train_label)
 #t8 = train(train_datas,train_label)
 #t9 = train(train_datas,train_label)
 
-minimize.GradientDescend(cost,datas,label,weight,train_datas,train_label,max_step=20000)
+minimize.GradientDescend(cost,datas,label,weight,train_datas,train_label,max_step=int(1e6))

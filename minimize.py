@@ -18,7 +18,7 @@ def GradientDescend(F,D,L,W,datas,label,**options):
     """
     # 设置默认参数
     if 'learn_rate' not in options:
-        options['learn_rate'] = 1e-4
+        options['learn_rate'] = 1e-5
         print(f"调用GradientDescend函数是未指定learn_rate参数，将使用默认值{options['learn_rate']}")
     
     if 'momentum' not in options:
