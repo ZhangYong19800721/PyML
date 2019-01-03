@@ -27,7 +27,7 @@ def minimize_GD(F,*x0,**options):
         print(f"调用minimize_GD函数时未指定epsilon_g参数，将使用默认值{options['epsilon_g']}")
  
     # 初始化
-    inc_x = [0.0 * x for x in x0] #参数的递增量，初始化为零
+    inc_x = [0.0 * x for x in x0] # 参数的递增量，初始化为零
     x1 = x0  
     y1 = F.do_object_function(*x1) # 计算目标函数值
     

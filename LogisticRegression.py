@@ -16,7 +16,7 @@ class LogisticRegression(object):
         x = T.dmatrix('x') # 模型的输入
         y = T.dmatrix('y') # 模型的输出
         n = T.dot(x,w)+b # 净输出
-        p = 1/(1+T.exp(-n)) # 概率值
+        p = T.nnet.sigmoid(n) # 概率值
         model_predict = p > 0.5 # 0.5为预测的门限值
         cross_entropy = -y * T.log(p) - (1-y) * T.log(1-p) # 交叉熵
         object_function = cross_entropy.mean() + 1e-5 * (w**2).sum()
