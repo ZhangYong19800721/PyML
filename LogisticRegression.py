@@ -19,7 +19,7 @@ class LogisticRegression(object):
         p = T.nnet.sigmoid(n) # 概率值
         model_predict = p > 0.5 # 0.5为预测的门限值
         cross_entropy = -y * T.log(p) - (1-y) * T.log(1-p) # 交叉熵
-        object_function = cross_entropy.mean() + 1e-5 * (w**2).sum()
+        object_function = cross_entropy.mean() + 1e-4 * (w**2).sum()
         gradient_vector = T.grad(object_function,[w,b]) # 梯度向量
         
         self.f_model_predict = theano.function([x,w,b],model_predict)

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import matplotlib.pyplot as plt
+import scipy.io as sio
 import numpy as np
 import theano
 import theano.tensor as T
@@ -30,7 +31,7 @@ class DeepBeliefNet(object):
         # 网络的最末端是一个softmax分类器
         p = T.nnet.softmax(n[-1])  # 概率输出
         model_predict = p # 模型的预测
-        object_function = -(y*T.log(p)).sum() + 1e-5 * (sum([(w_i**2).sum() for w_i in w]) + (b[-1]**2).sum()) 
+        object_function = -((y*T.log(p)).sum(axis=1)).mean() + 1e-5 * (sum([(w_i**2).sum() for w_i in w]) + (b[-1]**2).sum()) 
         gradient_vector = T.grad(object_function,w+b)
             
         self.f_model_predict = theano.function([x]+w+b,model_predict)
@@ -52,6 +53,15 @@ class DeepBeliefNet(object):
     
 if __name__ == '__main__':
     # 准备训练数据
+    mnist = sio.loadmat('./data/mnist.mat')
+    train_datas = np.array(mnist['mnist_train_images'],dtype=float).T / 255
+    train_label = np.zeros((mnist['mnist_train_labels'].shape[0],10))
+    for n in range(mnist['mnist_train_labels'].shape[0]):
+        train_label[n,mnist['mnist_train_labels'][n]] = 1
+    test_datas  = np.array(mnist['mnist_test_images'],dtype=float).T / 255
+    test_label  = np.zeros((mnist['mnist_test_labels'].shape[0],10))
+    for n in range(mnist['mnist_test_labels'].shape[0]):
+        test_label[n,mnist['mnist_test_labels'][n]] = 1
     
     # 模型参数
     model = DeepBeliefNet(4)
@@ -64,8 +74,15 @@ if __name__ == '__main__':
     w4 = 0.01 * np.random.randn(2000,10)
     b4 = np.zeros((10,))
     
-    model.parameters = [w1,w2,w3,w4,b1,b2,b3,b4] # 绑定模型参数
-    x = np.ones((3,784))
-    predict = model.do_model_predict(x)
+    # 训练
+    model.datas = train_datas
+    model.label = train_label
+    x_optimal, y_optimal = optimal.minimize_GD(model,w1,w2,w3,w4,b1,b2,b3,b4,max_step=100000,learn_rate=1e-2)
+    
+    # 绑定模型参数
+    model.parameters = x_optimal # 绑定模型参数
+    
+    # 测试模型性能
+    predict = model.do_model_predict(test_datas)
     
     #plt.plot(train_datas,train_label,'r',train_datas,predict,'g')

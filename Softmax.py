@@ -23,7 +23,7 @@ class Softmax(object):
         p = T.nnet.softmax(n)  # 概率输出
             
         model_predict = p # 模型的预测
-        object_function = -(y*T.log(p)).sum() + 1e-5 * ((w**2).sum() + (b**2).sum()) 
+        object_function = -((y*T.log(p)).sum(axis=1)).mean() + 1e-4 * ((w**2).sum() + (b**2).sum()) 
         gradient_vector = T.grad(object_function,[w,b])
         
         self.f_model_predict = theano.function([x,w,b],model_predict)
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     
     w = 0.01 * np.random.randn(2,4)
     b = np.zeros((4,))
-    x_optimal,y_optimal = optimal.minimize_GD(model,w,b,max_step=int(1e5),learn_rate=1e-3)
+    x_optimal,y_optimal = optimal.minimize_GD(model,w,b,max_step=int(1e5),learn_rate=1e-1,epsilon_g=1e-5)
     model.parameters = x_optimal
     
     predict = model.do_model_predict(train_datas)

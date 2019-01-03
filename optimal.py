@@ -23,7 +23,7 @@ def minimize_GD(F,*x0,**options):
         print(f"调用minimize_GD函数时未指定max_step参数，将使用默认值{options['max_step']}")
         
     if 'epsilon_g' not in options:
-        options['epsilon_g'] = 1e-3
+        options['epsilon_g'] = 1e-5
         print(f"调用minimize_GD函数时未指定epsilon_g参数，将使用默认值{options['epsilon_g']}")
  
     # 初始化
