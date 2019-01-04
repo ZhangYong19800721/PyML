@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import sys
 import matplotlib.pyplot as plt
 import scipy.io as sio
 import numpy as np
@@ -32,7 +33,7 @@ class SoftmaxRestrictedBoltzmannMachine(object):
         
         self.datas = None # 开始训练之前需要绑定训练数据
         self.label = None # 开始训练之前需要绑定训练标签(即softmax节点的状态)
-        self.minibatch_size = 10 # 设定minibatch的大小
+        self.minibatch_size = 100 # 设定minibatch的大小
         self.parameters = None # 训练完毕之后需要绑定模型参数，顺序为[Wsh,Wvh,bs,bv,bh]
            
     def do_foreward(self,s,v):
@@ -51,7 +52,7 @@ class SoftmaxRestrictedBoltzmannMachine(object):
         """使用CD1快速算法来估计梯度，没有真正地计算梯度"""
         self.parameters = x # 设定模型参数
         N = self.datas.shape[0] # 总训练样本数量
-        select = np.random.randint(0,N,size = self.minibatch_size) # 按照minibatch的大小产生若干个随机数
+        select = np.random.choice(N,self.minibatch_size,replace=False) # 按照minibatch的大小产生若干个随机数,不会重复选中
         s0 = self.label[select,:] # 从训练数据中选择若干个样本组成一个minibatch
         v0 = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
         h0p,h0 = self.do_foreward(s0,v0)
@@ -63,17 +64,31 @@ class SoftmaxRestrictedBoltzmannMachine(object):
         gBv = -(v0 - v1p).sum(axis=0).T / self.minibatch_size
         gBh = -(h0p - h1p).sum(axis=0).T / self.minibatch_size
         return [gWsh,gWvh,gBs,gBv,gBh]
-    
+        
     def do_object_function(self,*x):
         """根据CD1算法，计算约束玻尔兹曼机的一阶重建误差"""
         self.parameters = x
         N = self.datas.shape[0]
-        select = np.random.randint(0,N,size = self.minibatch_size)
+        select = np.random.choice(N,self.minibatch_size,replace=False) # 按照minibatch的大小产生若干个随机数,不会重复选中
         s0 = self.label[select,:] # 从训练数据中选择若干个样本组成一个minibatch
         v0 = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
         h0p,h0 = self.do_foreward(s0,v0)
         s1p,s1,v1p,v1 = self.do_backward(h0)
         return (((s1p - s0)**2).sum(axis=0)).mean() + (((v1p - v0)**2).sum(axis=0)).mean()
+    
+    def do_model_predict(self,x):
+        """使用模型进行分类预测"""
+        Wsh,Wvh,Bs,Bv,Bh = self.parameters # 得到模型的参数
+        num_samples = x.shape[0] # 需要预测的样本数量
+        num_softmax = Bs.shape[0] # 类别数量
+        free_energy = sys.float_info.max * np.ones((num_samples,num_softmax)) # 初始化自由能量为最大值
+        
+        for n in range(num_softmax):
+            s = np.zeros((num_samples,num_softmax))
+            s[:,n] = 1
+            free_energy[:,n] = - s.dot(Bs) - x.dot(Bv) - np.sum(np.log(1 + np.exp(s.dot(Wsh) + x.dot(Wvh) + Bh)),axis=1)
+    
+        return np.argmin(free_energy,axis=1)
         
 if __name__ == '__main__':
     # 准备训练数据
@@ -83,9 +98,7 @@ if __name__ == '__main__':
     for n in range(mnist['mnist_train_labels'].shape[0]):
         train_label[n,mnist['mnist_train_labels'][n]] = 1
     test_datas  = np.array(mnist['mnist_test_images'],dtype=float).T / 255
-    test_label  = np.zeros((mnist['mnist_test_labels'].shape[0],10))
-    for n in range(mnist['mnist_test_labels'].shape[0]):
-        test_label[n,mnist['mnist_test_labels'][n]] = 1
+    test_label  = mnist['mnist_test_labels'].reshape(-1)
     
     # 初始化模型参数
     Wsh = 0.01 * np.random.randn(10,2000)
@@ -99,5 +112,14 @@ if __name__ == '__main__':
     # 绑定训练数据
     model.datas = train_datas
     model.label = train_label
-    x_optimal,y_optimal = optimal.minimize_SGD(model,Wsh,Wvh,Bs,Bv,Bh,max_step=1000000,learn_rate=0.1)
-    #print(x_optimal)
+    
+    # 训练
+    x_optimal,y_optimal = optimal.minimize_SGD(model,Wsh,Wvh,Bs,Bv,Bh,max_step=1000000,learn_rate=0.02)
+    
+    model.parameters = x_optimal # 绑定参数
+    predict = model.do_model_predict(test_datas)
+    
+    error_rate = np.sum((predict != test_label) + 0.0) / len(test_label)
+    print(f'error_rate = {error_rate}')
+    
+    

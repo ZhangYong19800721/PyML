@@ -73,7 +73,7 @@ def minimize_SGD(F,*x0,**options):
         print(f"调用minimize_SGD函数时未指定epsilon_r参数，将使用默认值{options['epsilon_r']}")
         
     if 'window' not in options:
-        options['window'] = 1000 # 计算目标函数均值的滑动窗口大小
+        options['window'] = 600 # 计算目标函数均值的滑动窗口大小
         print(f"调用minimize_SGD函数时未指定window参数，将使用默认值{options['window']}")
  
     # 初始化
