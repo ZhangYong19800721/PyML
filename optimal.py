@@ -58,23 +58,23 @@ def minimize_SGD(F,*x0,**options):
     # 设置默认参数
     if 'learn_rate' not in options:
         options['learn_rate'] = 1e-5
-        print(f"调用minimize_GD函数时未指定learn_rate参数，将使用默认值{options['learn_rate']}")
+        print(f"调用minimize_SGD函数时未指定learn_rate参数，将使用默认值{options['learn_rate']}")
     
     if 'momentum' not in options:
         options['momentum'] = 0.9
-        print(f"调用minimize_GD函数时未指定momentum参数，将使用默认值{options['momentum']}")
+        print(f"调用minimize_SGD函数时未指定momentum参数，将使用默认值{options['momentum']}")
     
     if 'max_step' not in options:
         options['max_step'] = 10000
-        print(f"调用minimize_GD函数时未指定max_step参数，将使用默认值{options['max_step']}")
+        print(f"调用minimize_SGD函数时未指定max_step参数，将使用默认值{options['max_step']}")
         
     if 'epsilon_r' not in options:
         options['epsilon_r'] = 1e-6 # 当学习速率降低至epsilon_r时算法停止
-        print(f"调用minimize_GD函数时未指定epsilon_r参数，将使用默认值{options['epsilon_r']}")
+        print(f"调用minimize_SGD函数时未指定epsilon_r参数，将使用默认值{options['epsilon_r']}")
         
     if 'window' not in options:
         options['window'] = 1000 # 计算目标函数均值的滑动窗口大小
-        print(f"调用minimize_GD函数时未指定window参数，将使用默认值{options['window']}")
+        print(f"调用minimize_SGD函数时未指定window参数，将使用默认值{options['window']}")
  
     # 初始化
     inc_x = [0.0 * x for x in x0] # 参数的递增量，初始化为零

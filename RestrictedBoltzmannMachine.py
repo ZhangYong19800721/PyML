@@ -26,6 +26,7 @@ class RestrictedBoltzmannMachine(object):
         self.f_backward = theano.function([h,w,bv,bh],vp,on_unused_input='ignore') # 反向传播函数
         
         self.datas = None # 开始训练之前需要绑定训练数据
+        self.minibatch_size = 10 # 设定minibatch的大小
         self.parameters = None # 训练完毕之后需要绑定模型参数
            
     def do_foreward(self,x):
@@ -37,8 +38,10 @@ class RestrictedBoltzmannMachine(object):
         return vp, (np.random.rand(*vp.shape) < vp) + 0.0 # 抽样
     
     def do_gradient_vector(self,*x):
-        self.parameters = x
-        v0 = self.datas
+        self.parameters = x # 设定模型参数
+        N = self.datas.shape[0] # 总训练样本数量
+        select = np.random.choice(N,self.minibatch_size,replace=False) # 按照minibatch的大小产生若干个随机数,不会重复选中
+        v0 = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
         h0p,h0 = self.do_foreward(v0)
         v1p,v1 = self.do_backward(h0)
         h1p,h1 = self.do_foreward(v1p)
@@ -49,7 +52,9 @@ class RestrictedBoltzmannMachine(object):
     
     def do_object_function(self,*x):
         self.parameters = x
-        v0 = self.datas
+        N = self.datas.shape[0]
+        select = np.random.choice(N,self.minibatch_size,replace=False) # 按照minibatch的大小产生若干个随机数,不会重复选中
+        v0 = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
         h0p,h0 = self.do_foreward(v0)
         v1p,v1 = self.do_backward(h0)
         return (((v1p - v0)**2).sum(axis=0)).mean()
@@ -67,13 +72,13 @@ if __name__ == '__main__':
         test_label[n,mnist['mnist_test_labels'][n]] = 1
     
     # 初始化模型参数
-    w = 0.01 * np.random.randn(784,500)
+    w = 0.01 * np.random.randn(784,2000)
     bv = np.zeros((784,))
-    bh = np.zeros((500,))
+    bh = np.zeros((2000,))
     
     model = RestrictedBoltzmannMachine()
     
     # 绑定训练数据
     model.datas = train_datas
-    x_optimal,y_optimal = optimal.minimize_GD(model,w,bv,bh,max_step=1000,learn_rate=0.001)
-    print(x_optimal)
+    x_optimal,y_optimal = optimal.minimize_SGD(model,w,bv,bh,max_step=1000000,learn_rate=0.1)
+    #print(x_optimal)
