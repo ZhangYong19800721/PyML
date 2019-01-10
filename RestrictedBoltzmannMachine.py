@@ -26,8 +26,8 @@ class RestrictedBoltzmannMachine(object):
         self.f_backward = theano.function([h,w,bv,bh],vp,on_unused_input='ignore') # 反向传播函数
         
         self.datas = None # 开始训练之前需要绑定训练数据
-        self.minibatch_size = 10 # 设定minibatch的大小
-        self.parameters = None # 训练完毕之后需要绑定模型参数
+        self.parameters = None # 训练完毕之后需要绑定模型参数，参数顺序为[W,Bv,Bh]
+        self.minibatch_size = 100 # 设定minibatch的大小
            
     def do_foreward(self,x):
         hp = self.f_foreward(x,*self.parameters) # 计算隐层的激活概率
@@ -39,9 +39,13 @@ class RestrictedBoltzmannMachine(object):
     
     def do_gradient_vector(self,*x):
         self.parameters = x # 设定模型参数
-        N = self.datas.shape[0] # 总训练样本数量
-        select = np.random.choice(N,self.minibatch_size,replace=False) # 按照minibatch的大小产生若干个随机数,不会重复选中
-        v0 = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
+        if self.minibatch_size > 0:
+            N = self.datas.shape[0] # 总训练样本数量
+            select = np.random.choice(N,self.minibatch_size,replace=False) # 按照minibatch的大小产生若干个随机数,不会重复选中
+            v0 = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
+        else:
+            v0 = self.datas
+            
         h0p,h0 = self.do_foreward(v0)
         v1p,v1 = self.do_backward(h0)
         h1p,h1 = self.do_foreward(v1p)
@@ -52,12 +56,16 @@ class RestrictedBoltzmannMachine(object):
     
     def do_object_function(self,*x):
         self.parameters = x
-        N = self.datas.shape[0]
-        select = np.random.choice(N,self.minibatch_size,replace=False) # 按照minibatch的大小产生若干个随机数,不会重复选中
-        v0 = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
+        if self.minibatch_size > 0:
+            N = self.datas.shape[0]
+            select = np.random.choice(N,self.minibatch_size,replace=False) # 按照minibatch的大小产生若干个随机数,不会重复选中
+            v0 = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
+        else:
+            v0 = self.datas
+            
         h0p,h0 = self.do_foreward(v0)
         v1p,v1 = self.do_backward(h0)
-        return (((v1p - v0)**2).sum(axis=0)).mean()
+        return (((v1p - v0)**2).sum(axis=1)).mean()
         
 if __name__ == '__main__':
     # 准备训练数据
