@@ -110,7 +110,7 @@ class SoftmaxRestrictedBoltzmannMachine(object):
         
 if __name__ == '__main__':
     # 准备训练数据
-    train_datas,train_label,test_datas,test_label = utility.load_mnist_g()
+    train_datas,train_label,test_datas,test_label = utility.load_mnist()
     
     # 初始化模型参数
     Wsh = 0.01 * np.random.randn(10,2000)
@@ -132,7 +132,7 @@ if __name__ == '__main__':
     model.label = train_label
     
     # 训练
-    x_optimal,y_optimal = optimal.minimize_SGD(model,Wsh,Wvh,Bs,Bv,Bh,max_step=1000000,learn_rate=0.01,window=542)
+    x_optimal,y_optimal = optimal.minimize_SGD(model,Wsh,Wvh,Bs,Bv,Bh,max_step=1000000,learn_rate=0.01,window=600)
     
     model.parameters = x_optimal # 绑定参数
     predict = model.do_model_predict(test_datas)
