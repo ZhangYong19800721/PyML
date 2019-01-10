@@ -3,9 +3,9 @@
 import matplotlib.pyplot as plt
 import scipy.io as sio
 import numpy as np
-import theano
-import theano.tensor as T
 import optimal
+import RestrictedBoltzmannMachine as RBM
+import SoftmaxRestrictedBoltzmannMachine as SRBM
 
 class DeepBeliefNet(object):
     """
@@ -13,44 +13,46 @@ class DeepBeliefNet(object):
     """
     def __init__(self, L=2): 
         # L表示层数
-        w,b = [],[] 
-        for i in range(L):
-            w.append(T.dmatrix(f'w{i}'))
-            b.append(T.dvector(f'b{i}'))
-            
-        x = T.dmatrix('x') # 模型的输入
-        y = T.dmatrix('y') # 模型的输出
-
-        n = [T.dot(x,w[0])+b[0]] # 第0层的净输出
-        z = []  # 每一层的限幅输出
+        self.stack_RBM = [] # 栈式约束玻尔兹曼机
+        for i in range(L-1):
+            self.stack_RBM.append(RBM.RestrictedBoltzmannMachine())
         
-        for i in range(1,L): # 当L=1时该循环不执行
-            z.append(T.nnet.sigmoid(n[i-1])) # sigmoid函数
-            n.append(T.dot(z[i-1],w[i])+b[i])
-        
-        # 网络的最末端是一个softmax分类器
-        p = T.nnet.softmax(n[-1])  # 概率输出
-        model_predict = p # 模型的预测
-        object_function = -((y*T.log(p)).sum(axis=1)).mean() + 1e-5 * (sum([(w_i**2).sum() for w_i in w]) + (b[-1]**2).sum()) 
-        gradient_vector = T.grad(object_function,w+b)
-            
-        self.f_model_predict = theano.function([x]+w+b,model_predict)
-        self.f_object_function = theano.function([x,y]+w+b,object_function)
-        self.f_gradient_vector = theano.function([x,y]+w+b,gradient_vector)
+        # 网络的最末端是一个softmaxRBM分类器
+        self.softmax_RBM = SRBM.SoftmaxRestrictedBoltzmannMachine()
         
         self.datas = None # 开始训练之前需要绑定训练数据
         self.label = None # 开始训练之前需要绑定训练标签
-        self.parameters = None # 训练完毕之后需要绑定模型参数
+        
+    def bind_parameters(self,*x): 
+        """绑定模型参数"""
+        index = 0
+        for rbm in self.stack_RBM:
+            rbm.parameters = x[index:(index+3)]
+            index = index + 3
+        
+        self.softmax_RBM.parameters = x[index:]
+        
+    def train(self, **options):
+        # 对每一层RBM进行快速训练
+        datas = self.datas # 初始化训练数据
+        for rbm in self.stack_RBM:
+            rbm.datas = datas # 绑定训练数据
+            x_optimal,y_optimal = optimal.minimize_SGD(rbm,*rbm.parameters,**options) # 训练
+            rbm.parameters = x_optimal # 绑定最优参数
+            datas, _1 = rbm.do_foreward(datas) # 映射训练数据到下一层
+            
+        self.softmax_RBM.datas = datas # 绑定训练数据
+        self.softmax_RBM.label = self.label # 绑定训练标签
+        x_optimal,y_optimal = optimal.minimize_SGD(self.softmax_RBM,*self.softmax_RBM.parameters,**options) # 训练
+        self.softmax_RBM.parameters = x_optimal # 绑定最优参数
         
     def do_model_predict(self,x):
-        return self.f_model_predict(x,*self.parameters)
-    
-    def do_object_function(self,*x):
-        return self.f_object_function(self.datas,self.label,*x)
-    
-    def do_gradient_vector(self,*x):
-        return self.f_gradient_vector(self.datas,self.label,*x)
-    
+        z = x
+        for rbm in self.stack_RBM:
+            z,_1 = rbm.do_foreward(z)
+        
+        return self.softmax_RBM.do_model_predict(z)
+        
 if __name__ == '__main__':
     # 准备训练数据
     mnist = sio.loadmat('./data/mnist.mat')
@@ -59,30 +61,40 @@ if __name__ == '__main__':
     for n in range(mnist['mnist_train_labels'].shape[0]):
         train_label[n,mnist['mnist_train_labels'][n]] = 1
     test_datas  = np.array(mnist['mnist_test_images'],dtype=float).T / 255
-    test_label  = np.zeros((mnist['mnist_test_labels'].shape[0],10))
-    for n in range(mnist['mnist_test_labels'].shape[0]):
-        test_label[n,mnist['mnist_test_labels'][n]] = 1
+    test_label  = mnist['mnist_test_labels'].reshape(-1)
     
-    # 模型参数
-    model = DeepBeliefNet(4)
-    w1 = 0.01 * np.random.randn(784,500)
-    b1 = np.zeros((500,))
-    w2 = 0.01 * np.random.randn(500,500)
-    b2 = np.zeros((500,))
-    w3 = 0.01 * np.random.randn(500,2000)
-    b3 = np.zeros((2000,))
-    w4 = 0.01 * np.random.randn(2000,10)
-    b4 = np.zeros((10,))
+    # 创建模型
+    model = DeepBeliefNet(3)
     
-    # 训练
+    # 第1层约束玻尔兹曼机参数
+    W1 = 0.01 * np.random.randn(784,500)
+    Bv1 = np.zeros((784,))
+    Bh1 = np.zeros((500,))
+    
+    # 第2层约束玻尔兹曼机参数
+    W2 = 0.01 * np.random.randn(500,500)
+    Bv2 = np.zeros((500,))
+    Bh2 = np.zeros((500,))
+    
+    # 第3层Softmax约束玻尔兹曼机参数
+    Wsh = 0.01 * np.random.randn(10,2000)
+    Wvh = 0.01 * np.random.randn(500,2000)
+    Bs = np.zeros((10,))
+    Bv = np.zeros((500,))
+    Bh = np.zeros((2000,))
+    
+    # 绑定参数
+    model.bind_parameters(W1,Bv1,Bh1,W2,Bv2,Bh2,Wsh,Wvh,Bs,Bv,Bh)
+    
+    # 绑定训练数据
     model.datas = train_datas
     model.label = train_label
-    x_optimal, y_optimal = optimal.minimize_GD(model,w1,w2,w3,w4,b1,b2,b3,b4,max_step=100000,learn_rate=1e-2)
     
-    # 绑定模型参数
-    model.parameters = x_optimal # 绑定模型参数
-    
+    # 训练
+    model.train(max_step=1000000,learn_rate=1e-1,window=600)
+        
     # 测试模型性能
     predict = model.do_model_predict(test_datas)
     
-    #plt.plot(train_datas,train_label,'r',train_datas,predict,'g')
+    error_rate = np.sum((predict != test_label) + 0.0) / len(test_label)
+    print(f'error_rate = {error_rate}')
