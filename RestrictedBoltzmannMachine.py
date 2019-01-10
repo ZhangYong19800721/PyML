@@ -6,6 +6,7 @@ import numpy as np
 import theano
 import theano.tensor as T
 import optimal
+import utility
 
 class RestrictedBoltzmannMachine(object):
     """
@@ -37,11 +38,13 @@ class RestrictedBoltzmannMachine(object):
         vp = self.f_backward(x,*self.parameters) # 计算显层的激活概率
         return vp, (np.random.rand(*vp.shape) < vp) + 0.0 # 抽样
     
-    def do_gradient_vector(self,*x):
+    def do_gradient_vector(self,step_idx,*x):
         self.parameters = x # 设定模型参数
         if self.minibatch_size > 0:
             N = self.datas.shape[0] # 总训练样本数量
-            select = np.random.choice(N,self.minibatch_size,replace=False) # 按照minibatch的大小产生若干个随机数,不会重复选中
+            minibatch_num = N // self.minibatch_size # 得到minibatch的个数
+            minibatch_idx = step_idx % minibatch_num # 得到当前该取哪个minibatch
+            select = list(range(minibatch_idx * self.minibatch_size, (1 + minibatch_idx) * self.minibatch_size))
             v0 = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
         else:
             v0 = self.datas
@@ -49,16 +52,20 @@ class RestrictedBoltzmannMachine(object):
         h0p,h0 = self.do_foreward(v0)
         v1p,v1 = self.do_backward(h0)
         h1p,h1 = self.do_foreward(v1p)
-        gw = -(v0.T.dot(h0p) - v1p.T.dot(h1p)) / v0.shape[0]
+        
+        weight_cost = 1e-4
+        gw = -(v0.T.dot(h0p) - v1p.T.dot(h1p)) / v0.shape[0] + weight_cost * self.parameters[0]
         gbh = -(h0 - h1p).sum(axis=0).T / v0.shape[0]
         gbv = -(v0 - v1p).sum(axis=0).T / v0.shape[0]
         return [gw,gbv,gbh]
     
-    def do_object_function(self,*x):
+    def do_object_function(self,step_idx,*x):
         self.parameters = x
         if self.minibatch_size > 0:
             N = self.datas.shape[0]
-            select = np.random.choice(N,self.minibatch_size,replace=False) # 按照minibatch的大小产生若干个随机数,不会重复选中
+            minibatch_num = N // self.minibatch_size # 得到minibatch的个数
+            minibatch_idx = step_idx % minibatch_num # 得到当前该取哪个minibatch
+            select = list(range(minibatch_idx * self.minibatch_size, (1 + minibatch_idx) * self.minibatch_size))
             v0 = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
         else:
             v0 = self.datas
@@ -69,24 +76,19 @@ class RestrictedBoltzmannMachine(object):
         
 if __name__ == '__main__':
     # 准备训练数据
-    mnist = sio.loadmat('./data/mnist.mat')
-    train_datas = np.array(mnist['mnist_train_images'],dtype=float).T / 255
-    train_label = np.zeros((mnist['mnist_train_labels'].shape[0],10))
-    for n in range(mnist['mnist_train_labels'].shape[0]):
-        train_label[n,mnist['mnist_train_labels'][n]] = 1
-    test_datas  = np.array(mnist['mnist_test_images'],dtype=float).T / 255
-    test_label  = np.zeros((mnist['mnist_test_labels'].shape[0],10))
-    for n in range(mnist['mnist_test_labels'].shape[0]):
-        test_label[n,mnist['mnist_test_labels'][n]] = 1
+    train_datas,train_label,test_datas,test_label = utility.load_mnist()
     
     # 初始化模型参数
-    w = 0.01 * np.random.randn(784,2000)
-    bv = np.zeros((784,))
-    bh = np.zeros((2000,))
+    W = 0.01 * np.random.randn(784,2000)
+    Bv = np.mean(train_datas,axis=0)
+    Bv = np.log(Bv / (1-Bv))
+    Bv[Bv<-100] = -100
+    Bv[Bv>+100] = +100
+    Bh = np.zeros((2000,))
     
     model = RestrictedBoltzmannMachine()
     
     # 绑定训练数据
     model.datas = train_datas
-    x_optimal,y_optimal = optimal.minimize_SGD(model,w,bv,bh,max_step=1000000,learn_rate=0.1)
+    x_optimal,y_optimal = optimal.minimize_SGD(model,W,Bv,Bh,max_step=1000000,learn_rate=0.01,window=600)
     #print(x_optimal)
