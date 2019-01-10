@@ -67,8 +67,9 @@ class SoftmaxRestrictedBoltzmannMachine(object):
         s1p,s1,v1p,v1 = self.do_backward(h0)
         h1p,h1 = self.do_foreward(s1,v1p)
         
-        gWsh = -(s0.T.dot(h0p) -  s1.T.dot(h1p)) / self.minibatch_size
-        gWvh = -(v0.T.dot(h0p) - v1p.T.dot(h1p)) / self.minibatch_size
+        weight_cost = 1e-4
+        gWsh = -(s0.T.dot(h0p) -  s1.T.dot(h1p)) / self.minibatch_size + weight_cost * self.parameters[0]
+        gWvh = -(v0.T.dot(h0p) - v1p.T.dot(h1p)) / self.minibatch_size + weight_cost * self.parameters[1]
         gBs = -(s0 - s1p).mean(axis=0).T
         gBv = -(v0 - v1p).mean(axis=0).T
         gBh = -(h0 - h1p).mean(axis=0).T

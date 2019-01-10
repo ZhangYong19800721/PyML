@@ -50,7 +50,7 @@ class RestrictedBoltzmannMachine(object):
         v1p,v1 = self.do_backward(h0)
         h1p,h1 = self.do_foreward(v1p)
         gw = -(v0.T.dot(h0p) - v1p.T.dot(h1p)) / v0.shape[0]
-        gbh = -(h0p - h1p).sum(axis=0).T / v0.shape[0]
+        gbh = -(h0 - h1p).sum(axis=0).T / v0.shape[0]
         gbv = -(v0 - v1p).sum(axis=0).T / v0.shape[0]
         return [gw,gbv,gbh]
     
