@@ -32,7 +32,7 @@ class Softmax(object):
         
         self.datas = None # 开始训练之前需要绑定训练数据
         self.label = None # 开始训练之前需要绑定训练标签
-        self.parameters = None # 训练完毕之后需要绑定模型参数
+        self.parameters = None # 训练完毕之后需要绑定模型参数，参数顺序为[w,b]
         
     def do_model_predict(self,x):
         return self.f_model_predict(x,*self.parameters)
