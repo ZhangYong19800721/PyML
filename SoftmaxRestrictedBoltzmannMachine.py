@@ -51,16 +51,23 @@ class SoftmaxRestrictedBoltzmannMachine(object):
     def do_gradient_vector(self,step_idx,*x):
         """使用CD1快速算法来估计梯度，没有真正地计算梯度"""
         self.parameters = x # 设定模型参数
-        N = self.datas.shape[0] # 总训练样本数量
-        select = np.random.choice(N,self.minibatch_size,replace=False) # 按照minibatch的大小产生若干个随机数,不会重复选中
-        s0 = self.label[select,:] # 从训练数据中选择若干个样本组成一个minibatch
-        v0 = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
         
+        if self.minibatch_size > 0:
+            N = self.datas.shape[0] # 总训练样本数量
+            minibatch_num = N // self.minibatch_size # 得到minibatch的个数
+            minibatch_idx = step_idx % minibatch_num # 得到当前该取哪个minibatch
+            select = list(range(minibatch_idx * self.minibatch_size, (1 + minibatch_idx) * self.minibatch_size))
+            s0 = self.label[select,:] # 从训练数据中选择若干个样本组成一个minibatch
+            v0 = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
+        else:
+            s0 = self.label # 全部训练数据组成一个batch
+            v0 = self.datas # 全部训练数据组成一个batch
+            
         h0p,h0 = self.do_foreward(s0,v0)
         s1p,s1,v1p,v1 = self.do_backward(h0)
         h1p,h1 = self.do_foreward(s1,v1p)
         
-        gWsh = -(s0.T.dot(h0p) - s1.T.dot(h1p)) / self.minibatch_size
+        gWsh = -(s0.T.dot(h0p) -  s1.T.dot(h1p)) / self.minibatch_size
         gWvh = -(v0.T.dot(h0p) - v1p.T.dot(h1p)) / self.minibatch_size
         gBs = -(s0 - s1p).mean(axis=0).T
         gBv = -(v0 - v1p).mean(axis=0).T
@@ -70,10 +77,18 @@ class SoftmaxRestrictedBoltzmannMachine(object):
     def do_object_function(self,step_idx,*x):
         """根据CD1算法，计算约束玻尔兹曼机的一阶重建误差"""
         self.parameters = x
-        N = self.datas.shape[0]
-        select = np.random.choice(N,self.minibatch_size,replace=False) # 按照minibatch的大小产生若干个随机数,不会重复选中
-        s0 = self.label[select,:] # 从训练数据中选择若干个样本组成一个minibatch
-        v0 = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
+        if self.minibatch_size > 0:
+            N = self.datas.shape[0] # 总训练样本数量
+            minibatch_num = N // self.minibatch_size # 得到minibatch的个数
+            minibatch_idx = step_idx % minibatch_num # 得到当前该取哪个minibatch
+            select = list(range(minibatch_idx * self.minibatch_size, (1 + minibatch_idx) * self.minibatch_size))
+            # select = np.random.choice(N,self.minibatch_size,replace=False) # 按照minibatch的大小产生若干个随机数,不会重复选中
+            s0 = self.label[select,:] # 从训练数据中选择若干个样本组成一个minibatch
+            v0 = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
+        else:
+            s0 = self.label # 全部训练数据组成一个batch
+            v0 = self.datas # 全部训练数据组成一个batch
+            
         h0p,h0 = self.do_foreward(s0,v0)
         s1p,s1,v1p,v1 = self.do_backward(h0)
         return (((s1p - s0)**2).sum(axis=1)).mean() + (((v1p - v0)**2).sum(axis=1)).mean()
@@ -94,7 +109,7 @@ class SoftmaxRestrictedBoltzmannMachine(object):
         
 if __name__ == '__main__':
     # 准备训练数据
-    train_datas,train_label,test_datas,test_label = utility.load_mnist()
+    train_datas,train_label,test_datas,test_label = utility.load_mnist_g()
     
     # 初始化模型参数
     Wsh = 0.01 * np.random.randn(10,2000)
