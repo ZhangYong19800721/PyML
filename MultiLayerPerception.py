@@ -6,7 +6,7 @@ import theano
 import theano.tensor as T
 import optimal
 
-class MultiLayerPerception(object):
+class MultilayerPerception(object):
     """
         多层感知器
     """
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     train_datas = np.linspace(-np.pi,np.pi,N).reshape(N,1)
     train_label = np.sin(train_datas).reshape(N,1)
     
-    model = MultiLayerPerception(3)
+    model = MultilayerPerception(3)
     model.datas = train_datas
     model.label = train_label
     
