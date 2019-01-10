@@ -55,16 +55,16 @@ class SoftmaxRestrictedBoltzmannMachine(object):
         select = np.random.choice(N,self.minibatch_size,replace=False) # 按照minibatch的大小产生若干个随机数,不会重复选中
         s0 = self.label[select,:] # 从训练数据中选择若干个样本组成一个minibatch
         v0 = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
+        
         h0p,h0 = self.do_foreward(s0,v0)
         s1p,s1,v1p,v1 = self.do_backward(h0)
         h1p,h1 = self.do_foreward(s1,v1p)
-        # h1p,h1 = self.do_foreward(s1,v1)
-        gWsh = -((s0.T).dot(h0p) - (s1.T).dot(h1p)) / self.minibatch_size
-        gWvh = -((v0.T).dot(h0p) - (v1p.T).dot(h1p)) / self.minibatch_size
-        # gWvh = -((v0.T).dot(h0p) - (v1.T).dot(h1p)) / self.minibatch_size
-        gBs = -(s0 - s1p).sum(axis=0).T / self.minibatch_size
-        gBv = -(v0 - v1p).sum(axis=0).T / self.minibatch_size
-        gBh = -(h0p - h1p).sum(axis=0).T / self.minibatch_size
+        
+        gWsh = -(s0.T.dot(h0p) - s1.T.dot(h1p)) / self.minibatch_size
+        gWvh = -(v0.T.dot(h0p) - v1p.T.dot(h1p)) / self.minibatch_size
+        gBs = -(s0 - s1p).mean(axis=0).T
+        gBv = -(v0 - v1p).mean(axis=0).T
+        gBh = -(h0 - h1p).mean(axis=0).T
         return [gWsh,gWvh,gBs,gBv,gBh]
         
     def do_object_function(self,step_idx,*x):
