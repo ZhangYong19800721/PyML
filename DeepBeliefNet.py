@@ -6,6 +6,7 @@ import numpy as np
 import optimal
 import RestrictedBoltzmannMachine as RBM
 import SoftmaxRestrictedBoltzmannMachine as SRBM
+import utility
 
 class DeepBeliefNet(object):
     """
@@ -37,7 +38,15 @@ class DeepBeliefNet(object):
         datas = self.datas # 初始化训练数据
         for rbm in self.stack_RBM:
             rbm.datas = datas # 绑定训练数据
-            x_optimal,y_optimal = optimal.minimize_SGD(rbm,*rbm.parameters,**options) # 训练
+
+            # 初始化参数
+            W,Bv,Bh = rbm.parameters
+            Bv = np.mean(rbm.datas,axis=0)
+            Bv = np.log(Bv / (1-Bv))
+            Bv[Bv<-100] = -100
+            Bv[Bv>+100] = +100
+            
+            x_optimal,y_optimal = optimal.minimize_SGD(rbm,W,Bv,Bh,**options) # 训练
             rbm.parameters = x_optimal # 绑定最优参数
             datas, _1 = rbm.do_foreward(datas) # 映射训练数据到下一层
             
@@ -55,13 +64,7 @@ class DeepBeliefNet(object):
         
 if __name__ == '__main__':
     # 准备训练数据
-    mnist = sio.loadmat('./data/mnist.mat')
-    train_datas = np.array(mnist['mnist_train_images'],dtype=float).T / 255
-    train_label = np.zeros((mnist['mnist_train_labels'].shape[0],10))
-    for n in range(mnist['mnist_train_labels'].shape[0]):
-        train_label[n,mnist['mnist_train_labels'][n]] = 1
-    test_datas  = np.array(mnist['mnist_test_images'],dtype=float).T / 255
-    test_label  = mnist['mnist_test_labels'].reshape(-1)
+    train_datas,train_label,test_datas,test_label = utility.load_mnist()
     
     # 创建模型
     model = DeepBeliefNet(3)
@@ -91,7 +94,7 @@ if __name__ == '__main__':
     model.label = train_label
     
     # 训练
-    model.train(max_step=1000000,learn_rate=1e-1,window=600)
+    model.train(max_step=1000000,learn_rate=0.01,window=600)
         
     # 测试模型性能
     predict = model.do_model_predict(test_datas)
