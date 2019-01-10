@@ -40,7 +40,7 @@ def minimize_GD(F,*x0,**options):
         if ng1 < options['epsilon_g']:
             break # 如果梯度足够小就结束迭代
         # 向负梯度方向迭代，并使用动量参数
-        inc_x = [options['momentum'] * d - (1 - options['momentum']) * options['learn_rate'] * g for d,g in zip(inc_x,g1)] 
+        inc_x = [options['momentum'] * d - options['learn_rate'] * g for d,g in zip(inc_x,g1)] 
         x1 = [x + inc for x,inc in zip(x1,inc_x)] # 更新参数值
         y1 = F.do_object_function(*x1) # 计算目标函数值
     
@@ -89,7 +89,7 @@ def minimize_SGD(F,*x0,**options):
         g1 = F.do_gradient_vector(step,*x1) # 计算梯度
         ng1 = sum([np.linalg.norm(g) for g in g1]) # 计算梯度模
         # 向负梯度方向迭代，并使用动量参数
-        inc_x = [options['momentum'] * d - (1 - options['momentum']) * options['learn_rate'] * g for d,g in zip(inc_x,g1)] 
+        inc_x = [options['momentum'] * d - options['learn_rate'] * g for d,g in zip(inc_x,g1)] 
         x1 = [x + inc for x,inc in zip(x1,inc_x)] # 更新参数值
         y1 = F.do_object_function(step,*x1) # 计算目标函数值
         object_val[step%options['window']] = y1
