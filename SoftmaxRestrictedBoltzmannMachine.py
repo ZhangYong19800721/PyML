@@ -33,8 +33,8 @@ class SoftmaxRestrictedBoltzmannMachine(object):
         
         self.datas = None # 开始训练之前需要绑定训练数据
         self.label = None # 开始训练之前需要绑定训练标签(即softmax节点的状态)
+        self.parameters = None # 训练完毕之后需要绑定模型参数，顺序为[Wsh,Wvh,Bs,Bv,Bh]
         self.minibatch_size = 100 # 设定minibatch的大小
-        self.parameters = None # 训练完毕之后需要绑定模型参数，顺序为[Wsh,Wvh,bs,bv,bh]
            
     def do_foreward(self,s,v):
         """根据softmax+显层状态值计算隐层的激活概率并抽样得到隐层的状态值"""
@@ -48,7 +48,7 @@ class SoftmaxRestrictedBoltzmannMachine(object):
         v = (np.random.rand(*vp.shape) < vp) + 0.0 # 对vp进行抽样
         return sp, s, vp, v 
     
-    def do_gradient_vector(self,*x):
+    def do_gradient_vector(self,step_idx,*x):
         """使用CD1快速算法来估计梯度，没有真正地计算梯度"""
         self.parameters = x # 设定模型参数
         N = self.datas.shape[0] # 总训练样本数量
@@ -57,15 +57,17 @@ class SoftmaxRestrictedBoltzmannMachine(object):
         v0 = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
         h0p,h0 = self.do_foreward(s0,v0)
         s1p,s1,v1p,v1 = self.do_backward(h0)
-        h1p,h1 = self.do_foreward(s1p,v1p)
-        gWsh = -(s0.T.dot(h0p) - s1p.T.dot(h1p)) / self.minibatch_size
-        gWvh = -(v0.T.dot(h0p) - v1p.T.dot(h1p)) / self.minibatch_size
+        h1p,h1 = self.do_foreward(s1,v1p)
+        # h1p,h1 = self.do_foreward(s1,v1)
+        gWsh = -((s0.T).dot(h0p) - (s1.T).dot(h1p)) / self.minibatch_size
+        gWvh = -((v0.T).dot(h0p) - (v1p.T).dot(h1p)) / self.minibatch_size
+        # gWvh = -((v0.T).dot(h0p) - (v1.T).dot(h1p)) / self.minibatch_size
         gBs = -(s0 - s1p).sum(axis=0).T / self.minibatch_size
         gBv = -(v0 - v1p).sum(axis=0).T / self.minibatch_size
         gBh = -(h0p - h1p).sum(axis=0).T / self.minibatch_size
         return [gWsh,gWvh,gBs,gBv,gBh]
         
-    def do_object_function(self,*x):
+    def do_object_function(self,step_idx,*x):
         """根据CD1算法，计算约束玻尔兹曼机的一阶重建误差"""
         self.parameters = x
         N = self.datas.shape[0]
@@ -74,7 +76,7 @@ class SoftmaxRestrictedBoltzmannMachine(object):
         v0 = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
         h0p,h0 = self.do_foreward(s0,v0)
         s1p,s1,v1p,v1 = self.do_backward(h0)
-        return (((s1p - s0)**2).sum(axis=0)).mean() + (((v1p - v0)**2).sum(axis=0)).mean()
+        return (((s1p - s0)**2).sum(axis=1)).mean() + (((v1p - v0)**2).sum(axis=1)).mean()
     
     def do_model_predict(self,x):
         """使用模型进行分类预测"""
@@ -92,19 +94,19 @@ class SoftmaxRestrictedBoltzmannMachine(object):
         
 if __name__ == '__main__':
     # 准备训练数据
-    mnist = sio.loadmat('./data/mnist.mat')
-    train_datas = np.array(mnist['mnist_train_images'],dtype=float).T / 255
-    train_label = np.zeros((mnist['mnist_train_labels'].shape[0],10))
-    for n in range(mnist['mnist_train_labels'].shape[0]):
-        train_label[n,mnist['mnist_train_labels'][n]] = 1
-    test_datas  = np.array(mnist['mnist_test_images'],dtype=float).T / 255
-    test_label  = mnist['mnist_test_labels'].reshape(-1)
+    train_datas,train_label,test_datas,test_label = utility.load_mnist()
     
     # 初始化模型参数
     Wsh = 0.01 * np.random.randn(10,2000)
     Wvh = 0.01 * np.random.randn(784,2000)
-    Bs = np.zeros((10,))
-    Bv = np.zeros((784,))
+    Bs = np.mean(train_label,axis=0)
+    Bs = np.log(Bs / (1-Bs))
+    Bs[Bs<-100] = -100
+    Bs[Bs>+100] = +100
+    Bv = np.mean(train_datas,axis=0)
+    Bv = np.log(Bv / (1-Bv))
+    Bv[Bv<-100] = -100
+    Bv[Bv>+100] = +100
     Bh = np.zeros((2000,))
     
     model = SoftmaxRestrictedBoltzmannMachine()
@@ -114,7 +116,7 @@ if __name__ == '__main__':
     model.label = train_label
     
     # 训练
-    x_optimal,y_optimal = optimal.minimize_SGD(model,Wsh,Wvh,Bs,Bv,Bh,max_step=1000000,learn_rate=0.02)
+    x_optimal,y_optimal = optimal.minimize_SGD(model,Wsh,Wvh,Bs,Bv,Bh,max_step=1000000,learn_rate=0.01,window=542)
     
     model.parameters = x_optimal # 绑定参数
     predict = model.do_model_predict(test_datas)
