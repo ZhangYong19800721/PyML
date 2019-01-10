@@ -80,24 +80,25 @@ def minimize_SGD(F,*x0,**options):
     inc_x = [0.0 * x for x in x0] # 参数的递增量，初始化为零
     learn_rate = options['learn_rate'] # 初始化学习速度
     x1 = x0  
-    y1 = F.do_object_function(*x1) # 计算目标函数值
-    exponential_ave = y1 
+    y1 = F.do_object_function(0,*x1) # 计算目标函数值
+    object_val = y1 * np.ones((options['window'],)) 
     prev_ave = sys.float_info.max
     
     # 开始迭代
     for step in range(1,options['max_step']+1):
-        g1 = F.do_gradient_vector(*x1) # 计算梯度
+        g1 = F.do_gradient_vector(step,*x1) # 计算梯度
         ng1 = sum([np.linalg.norm(g) for g in g1]) # 计算梯度模
         # 向负梯度方向迭代，并使用动量参数
         inc_x = [options['momentum'] * d - (1 - options['momentum']) * options['learn_rate'] * g for d,g in zip(inc_x,g1)] 
         x1 = [x + inc for x,inc in zip(x1,inc_x)] # 更新参数值
-        y1 = F.do_object_function(*x1) # 计算目标函数值
-        exponential_ave = (1-1/options['window'])*exponential_ave + (1/options['window'])*y1; # 更新滑动均值
-        print("迭代次数：%6d, 目标函数：%10.8f, 目标均值：%10.8f, 梯度模：%10.8f, 学习速度：%10.8f" % (step,y1,exponential_ave,ng1,learn_rate))
+        y1 = F.do_object_function(step,*x1) # 计算目标函数值
+        object_val[step%options['window']] = y1
+        object_ave = np.mean(object_val); # 更新滑动均值
+        print("迭代次数：%6d, 目标函数：%10.8f, 目标均值：%10.8f, 梯度模：%10.8f, 学习速度：%10.8f" % (step,y1,object_ave,ng1,learn_rate))
         
         if step % options['window'] == 0:
-            if exponential_ave < prev_ave:
-                prev_ave = exponential_ave
+            if object_ave < prev_ave:
+                prev_ave = object_ave
             else:
                 learn_rate /= 2.0 # 当目标函数的滑动均值不能降低时，就降低学习速度
         
