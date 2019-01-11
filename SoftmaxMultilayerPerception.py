@@ -86,7 +86,7 @@ if __name__ == '__main__':
     # 训练
     model.datas = train_datas
     model.label = train_label
-    x_optimal, y_optimal = optimal.minimize_SGD(model,w1,w2,b1,b2,max_step=1000000,learn_rate=1e-2)
+    x_optimal, y_optimal = optimal.minimize_ADAM(model,w1,w2,b1,b2,max_step=1000000,learn_rate=1e-2)
     
     # 绑定模型参数
     model.parameters = x_optimal # 绑定模型参数
