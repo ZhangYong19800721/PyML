@@ -45,7 +45,8 @@ class SoftmaxMultilayerPerception(object):
         self.minibatch_size = 100 # 设定minibatch的大小
         
     def do_model_predict(self,x):
-        return self.f_model_predict(x,*self.parameters)
+        predict = self.f_model_predict(x,*self.parameters)
+        return np.argmax(predict,axis = 1)
     
     def do_object_function(self,step_idx,*x):
         if self.minibatch_size > 0:
@@ -85,13 +86,12 @@ if __name__ == '__main__':
     # 训练
     model.datas = train_datas
     model.label = train_label
-    x_optimal, y_optimal = optimal.minimize_SGD(model,w1,w2,b1,b2,max_step=100000,learn_rate=1e-2)
+    x_optimal, y_optimal = optimal.minimize_SGD(model,w1,w2,b1,b2,max_step=1000000,learn_rate=1e-2)
     
     # 绑定模型参数
     model.parameters = x_optimal # 绑定模型参数
     
     # 测试模型性能
     predict = model.do_model_predict(test_datas)
-    predict = np.argmax(predict,axis = 1)
     error_rate = np.sum((predict != test_label) + 0.0) / len(test_label)
     print(f'error_rate = {error_rate}')
