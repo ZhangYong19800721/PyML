@@ -152,7 +152,7 @@ def minimize_ADAM(F,*x0,**options):
         print(f"调用minimize_ADAM函数时未指定epsilon_r参数，将使用默认值{options['epsilon_r']}")
         
     if 'window' not in options:
-        options['window'] = 0
+        options['window'] = 600
         print(f"调用minimize_ADAM函数时未指定decay参数，将使用默认值{options['window']}")
         
     # 初始化
@@ -160,20 +160,20 @@ def minimize_ADAM(F,*x0,**options):
     inc_v = [0.0 * x for x in x0] # 初始化第2个递增向量
     learn_rate = options['learn_rate'] # 初始化学习速度
     x1 = x0  # 迭代起始点
-    y1 = F.do_object_function(0,x1) # 计算目标函数值
+    y1 = F.do_object_function(0,*x1) # 计算目标函数值
     average = y1 
     prev_ave = sys.float_info.max
     
     # 开始迭代
     for step in range(1,options['max_step']+1):
-        g1 = F.do_gradient_vector(step,x1) # 计算梯度
+        g1 = F.do_gradient_vector(step,*x1) # 计算梯度
         ng1 = sum([np.linalg.norm(g) for g in g1]) # 计算梯度模
         inc_m = [options['beda1'] * m + (1 - options['beda1']) * g    for m,g in zip(inc_m,g1)] # 更新第1个增量向量
         inc_v = [options['beda2'] * v + (1 - options['beda2']) * g**2 for v,g in zip(inc_v,g1)] # 更新第2个增量向量
         inc_mb = [m / (1 - options['beda1']**step) for m in inc_m] # 对第1个增量向量进行修正
         inc_vb = [v / (1 - options['beda2']**step) for v in inc_v] # 对第2个增量向量进行修正      
         x1 = [x - learn_rate * m / (np.sqrt(v) + options['epsilon']) for x,m,v in zip(x1,inc_mb,inc_vb)]
-        y1 = F.do_object_function(step,x1) # 计算目标函数值
+        y1 = F.do_object_function(step,*x1) # 计算目标函数值
         average = (1-1/options['window']) * average + (1/options['window'])*y1 # 更新滑动均值
         print("迭代次数：%6d, 目标函数：%10.8f, 目标均值：%10.8f, 梯度模：%10.8f, 学习速度：%10.8f" % (step,y1,average,ng1,learn_rate))
         
