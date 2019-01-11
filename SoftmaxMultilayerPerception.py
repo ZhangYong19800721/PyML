@@ -6,6 +6,7 @@ import numpy as np
 import theano
 import theano.tensor as T
 import optimal
+import utility
 
 class SoftmaxMultilayerPerception(object):
     """
@@ -46,20 +47,24 @@ class SoftmaxMultilayerPerception(object):
     def do_model_predict(self,x):
         return self.f_model_predict(x,*self.parameters)
     
-    def do_object_function(self,*x):
+    def do_object_function(self,step_idx,*x):
         if self.minibatch_size > 0:
             N = self.datas.shape[0] # 总训练样本数量
-            select = np.random.choice(N,self.minibatch_size,replace=False) # 按照minibatch的大小产生若干个随机数,不会重复选中
+            minibatch_num = N // self.minibatch_size # 得到minibatch的个数
+            minibatch_idx = step_idx % minibatch_num # 得到当前该取哪个minibatch
+            select = list(range(minibatch_idx * self.minibatch_size, (1 + minibatch_idx) * self.minibatch_size))
             label_minibatch = self.label[select,:] # 从训练数据中选择若干个样本组成一个minibatch
             datas_minibatch = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
             return self.f_object_function(datas_minibatch,label_minibatch,*x)
         else:
             return self.f_object_function(self.datas,self.label,*x)
     
-    def do_gradient_vector(self,*x):
+    def do_gradient_vector(self,step_idx,*x):
         if self.minibatch_size > 0:
             N = self.datas.shape[0] # 总训练样本数量
-            select = np.random.choice(N,self.minibatch_size,replace=False) # 按照minibatch的大小产生若干个随机数,不会重复选中
+            minibatch_num = N // self.minibatch_size # 得到minibatch的个数
+            minibatch_idx = step_idx % minibatch_num # 得到当前该取哪个minibatch
+            select = list(range(minibatch_idx * self.minibatch_size, (1 + minibatch_idx) * self.minibatch_size))
             label_minibatch = self.label[select,:] # 从训练数据中选择若干个样本组成一个minibatch
             datas_minibatch = self.datas[select,:] # 从训练数据中选择若干个样本组成一个minibatch
             return self.f_gradient_vector(datas_minibatch,label_minibatch,*x)
@@ -68,13 +73,7 @@ class SoftmaxMultilayerPerception(object):
     
 if __name__ == '__main__':
     # 准备训练数据
-    mnist = sio.loadmat('./data/mnist.mat')
-    train_datas = np.array(mnist['mnist_train_images'],dtype=float).T / 255
-    train_label = np.zeros((mnist['mnist_train_labels'].shape[0],10))
-    for n in range(mnist['mnist_train_labels'].shape[0]):
-        train_label[n,mnist['mnist_train_labels'][n]] = 1
-    test_datas  = np.array(mnist['mnist_test_images'],dtype=float).T / 255
-    test_label  = mnist['mnist_test_labels'].reshape(-1)
+    train_datas,train_label,test_datas,test_label = utility.load_mnist()
     
     # 模型参数
     model = SoftmaxMultilayerPerception()
