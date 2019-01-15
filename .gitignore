@@ -6,3 +6,5 @@
 *.bak
 dist
 build
+.idea
+*.xml

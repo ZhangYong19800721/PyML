@@ -8,12 +8,10 @@ import optimal
 
 x = T.dmatrix('x')
 y = T.dmatrix('y')
-z = T.concatenate([x,y],axis=1)
+z = T.concatenate([x, y], axis=1)
 
-f = theano.function([x,y],z)
+f = theano.function([x, y], z)
 
-a = np.arange(15).reshape(3,5)
-b = np.ones((3,5))
-k = f(a,b)
-
-
+a = np.arange(15).reshape(3, 5)
+b = np.ones((3, 5))
+k = f(a, b)
