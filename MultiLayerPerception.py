@@ -6,7 +6,6 @@ import theano
 import theano.tensor as T
 import optimal
 
-
 class MultilayerPerception(object):
     """
         多层感知器
@@ -32,8 +31,7 @@ class MultilayerPerception(object):
         model_predict = n[-1]  # 模型的预测
         self.f_model_predict = theano.function([x] + w + b, model_predict)
 
-        object_function = 0.5 * (((model_predict - y) ** 2).sum(axis=1)).mean() + 1e-4 * sum(
-            [(w_i ** 2).sum() for w_i in w])
+        object_function = 0.5 * (((model_predict - y) ** 2).sum(axis=1)).mean() + 1e-4 * sum([(w_i ** 2).sum() for w_i in w])
         self.f_object_function = theano.function([x, y] + w + b, object_function)
 
         gradient_vector = T.grad(object_function, w + b)
@@ -74,7 +72,7 @@ if __name__ == '__main__':
     print(z)
     print(g)
 
-    x_optimal, y_optimal = optimal.minimize_GD(model, w1, w2, w3, b1, b2, b3, max_step=50000, learn_rate=1.0)
+    x_optimal, y_optimal = optimal.minimize_GD(model, w1, w2, w3, b1, b2, b3, max_step=50000)
 
     model.parameters = x_optimal
     predict = model.do_model_predict(train_datas)
