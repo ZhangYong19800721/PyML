@@ -72,7 +72,7 @@ if __name__ == '__main__':
     print(z)
     print(g)
 
-    x_optimal, y_optimal = optimal.minimize_GD(model, w1, w2, w3, b1, b2, b3, max_step=50000)
+    x_optimal, y_optimal = optimal.minimize_CG(model, w1, w2, w3, b1, b2, b3, max_step=50000)
 
     model.parameters = x_optimal
     predict = model.do_model_predict(train_datas)
