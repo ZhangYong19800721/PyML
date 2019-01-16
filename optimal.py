@@ -286,7 +286,7 @@ def minimize_LineSearch_Parabola(F,x0,g0,d0,**options):
             options 抛物线法的参数（字典）
         返回：
             最小点的函数值（浮点数）
-            最小点的变量值（浮点数）
+            最小点的变量值（列表，元素为numpy array）
     """
     Fs = SINGLE(F,x0,d0) # 包装为单变量函数
     a,b = advace_retrieve(Fs,0.0,1.0) # 估计搜索区间[a,b]
