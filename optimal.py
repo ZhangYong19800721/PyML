@@ -347,7 +347,7 @@ def minimize_GD(F, *x0, **options):
     """
     # 设置默认参数
     if 'learn_rate' not in options:
-        options['learn_rate'] = 1e-5
+        options['learn_rate'] = 1e-2
         print(f"调用minimize_GD函数时未指定learn_rate参数，将使用默认值{options['learn_rate']}")
 
     if 'momentum' not in options:
@@ -586,7 +586,7 @@ def minimize_CG(F, *x0, **options):
         g2 = F.do_gradient_vector(*x2) # 计算x2位置的梯度
         ng2 = sum([np.linalg.norm(g) for g in g2]) # 计算梯度模ng2
         beda = sum([q2.reshape(1,-1).dot((q2-q1).reshape(-1,1)) for q1,q2 in zip(g1,g2)]) / sum([g.reshape(1,-1).dot(g.reshape(-1,1)) for g in g1]) # g2'*(g2-g1)/(g1'*g1)
-        d2 = [-g + beda * d for g,d in zip(g2,d1)] # 计算x2处的搜索方向d2
+        d2 = [-g + beda[0,0] * d for g,d in zip(g2,d1)] # 计算x2处的搜索方向d2
         x1,d1,g1,y1,ng1 = x2,d2,g2,y2,ng2
         print("迭代次数：%6d, 目标函数：%10.8f, 梯度模：%10.8f" % (step, y1, ng1))
 
