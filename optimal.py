@@ -18,21 +18,15 @@ class SINGLE(object):
         self.x0 = x0
         self.d0 = d0
 
-    def do_object_function(self, m):
+    def do_object_function(self, step_idx, m):
         x1 = [x+m*d for x,d in zip(self.x0, self.d0)]
-        return self.F.do_object_function(*x1)
+        return self.F.do_object_function(step_idx,*x1)
 
 
 class NEGATIVE(object):
     """负向包裹器"""
     def __init__(self, F):
         self.F = F
-
-    def do_object_function(self, *x):
-        return -self.F.do_object_function(*x)
-
-    def do_gradient_vector(self, *x):
-        return -self.F.do_gradient_vector(*x)
 
     def do_object_function(self, step_idx, *x):
         return -self.F.do_object_function(step_idx, *x)
@@ -101,9 +95,9 @@ def _minimize_LineSearch_Gold(F, a, b, **options):
     # 使用黄金分割法进行一维搜索
     gold = (math.sqrt(5.0)-1.0) / 2.0 # 黄金分割数
     ax = a + (1 - gold)*(b - a) # 计算左侧的黄金分割点
-    F_ax = F.do_object_function(ax) # 计算左侧的目标函数值
+    F_ax = F.do_object_function(options['step_idx'],ax) # 计算左侧的目标函数值
     bx = a + gold * (b - a) # 计算右侧的黄金分割点
-    F_bx = F.do_object_function(bx) # 计算右侧的目标函数值
+    F_bx = F.do_object_function(options['step_idx'],bx) # 计算右侧的目标函数值
 
     while b - a > options['epsilon']: # 当搜索区间宽度下降至epsilon时停止
         if F_ax > F_bx:
@@ -111,13 +105,13 @@ def _minimize_LineSearch_Gold(F, a, b, **options):
             ax = bx
             F_ax = F_bx
             bx = a + gold * (b - a)
-            F_bx = F.do_object_function(bx)
+            F_bx = F.do_object_function(options['step_idx'],bx)
         else:
             b = bx
             bx = ax
             F_bx = F_ax
             ax = a + (1 - gold)*(b - a)
-            F_ax = F.do_object_function(ax)
+            F_ax = F.do_object_function(options['step_idx'],ax)
 
     if F_ax > F_bx:
         return F_bx,bx
@@ -140,7 +134,7 @@ def minimize_LineSearch_Gold(F,x0,g0,d0,**options):
     """
     Fs = SINGLE(F,x0,d0) # 包装为单变量函数
     a,b = advace_retrieve(Fs,0.0,1.0) # 估计搜索区间[a,b]
-    y1,m = _minimize_LineSearch_Gold(Fs,a,b) # 执行线搜索
+    y1,m = _minimize_LineSearch_Gold(Fs,a,b,**options) # 执行线搜索
     x1 = [x + m * d for x,d in zip(x0,d0)] # 迭代到新的位置x1
     return y1,x1
 
@@ -165,18 +159,18 @@ def _minimize_LineSearch_Parabola(F,a,b,**options):
     # 找到满足条件的起始点x1,x2,x3,应满足f(x2)<f(x1)且f(x2)<f(x3)
     x1 = a
     x3 = b
-    f1 = F.do_object_function(x1)
-    f3 = F.do_object_function(x3)
+    f1 = F.do_object_function(options['step_idx'],x1)
+    f3 = F.do_object_function(options['step_idx'],x3)
 
     # 从中间出发向x1或x3逐步靠近，直到找到比f1和f3都小的函数值f2和点x2
     n = 1
     while 1.0 / (2**n) > options['epsilon']:
         x2 = x1 + (x3 - x1) / 2**n # 向x1的方向靠近
-        f2 = F.do_object_function(x2)
+        f2 = F.do_object_function(options['step_idx'],x2)
         if f1 > f2 and f2 < f3:
             break # 当找到满足条件的f2和x2时跳出该循环
         x2 = x3 - (x3 - x1) / 2**n # 向x3的方向靠近
-        f2 = F.do_object_function(x2)
+        f2 = F.do_object_function(options['step_idx'],x2)
         if f1 > f2 and f2 < f3:
             break # 当找到满足条件的f2和x2时跳出该循环
         n = n + 1
@@ -205,7 +199,7 @@ def _minimize_LineSearch_Parabola(F,a,b,**options):
             state = 7
             fp = f2
         else:
-            fp = F.do_object_function(xp)
+            fp = F.do_object_function(options['step_idx'],xp)
             if xp > x2:
                 if fp < f2:
                     state = 1
@@ -235,7 +229,7 @@ def _minimize_LineSearch_Parabola(F,a,b,**options):
             x2 = (x1 + x3)/2
             f1 = f2
             f3 = fp
-            f2 = F.do_object_function(x2)
+            f2 = F.do_object_function(options['step_idx'],x2)
         elif state == 4:
             x3 = x2
             x2 = xp
@@ -250,12 +244,12 @@ def _minimize_LineSearch_Parabola(F,a,b,**options):
             x2 = (x1 + x3)/2
             f1 = fp
             f3 = f2
-            f2 = F.do_object_function(x2)
+            f2 = F.do_object_function(options['step_idx'],x2)
         elif state == 7:
             x12 = (x2 + x1) / 2
-            f12 = F.do_object_function(x12)
+            f12 = F.do_object_function(options['step_idx'],x12)
             x23 = (x2 + x3) / 2
-            f23 = F.do_object_function(x23)
+            f23 = F.do_object_function(options['step_idx'],x23)
             if f12 <= min(f2,f23):
                 x3 = x2
                 f3 = f2
@@ -290,7 +284,7 @@ def minimize_LineSearch_Parabola(F,x0,g0,d0,**options):
     """
     Fs = SINGLE(F,x0,d0) # 包装为单变量函数
     a,b = advace_retrieve(Fs,0.0,1.0) # 估计搜索区间[a,b]
-    y1,m = _minimize_LineSearch_Parabola(Fs,a,b) # 执行线搜索
+    y1,m = _minimize_LineSearch_Parabola(Fs,a,b,**options) # 执行线搜索
     x1 = [x + m * d for x,d in zip(x0,d0)] # 迭代到新的位置x1
     return y1,x1
 
@@ -325,10 +319,10 @@ def minimize_LineSearch_Armijo(F,x0,g0,d0,**options):
     # 搜索方向的值扩大1000倍，相当于可能的最大学习速度为1000
     d1 = [1000 * d for d in d0]
     step = 0
-    y0 = F.do_object_function(*x0)
+    y0 = F.do_object_function(options['step_idx'],*x0)
     while step <= options['max_step']:
         x1 = [x + (options['beda']**step) * d for x,d in zip(x0,d1)]
-        y1 = F.do_object_function(*x1)
+        y1 = F.do_object_function(options['step_idx'],*x1)
         if y1 <= y0 + options['alfa'] * (options['beda']**step) * sum([g.reshape(1,-1).dot(d.reshape(-1,1)) for g,d in zip(g0,d1)]):
             break
         step = step + 1
@@ -365,11 +359,11 @@ def minimize_GD(F, *x0, **options):
     # 初始化
     inc_x = [0.0 * x for x in x0]  # 参数的递增量，初始化为零
     x1 = x0
-    y1 = F.do_object_function(*x1)  # 计算目标函数值
+    y1 = F.do_object_function(0,*x1)  # 计算目标函数值
 
     # 开始迭代
     for step in range(1, options['max_step'] + 1):
-        g1 = F.do_gradient_vector(*x1)  # 计算梯度
+        g1 = F.do_gradient_vector(step, *x1)  # 计算梯度
         ng1 = sum([np.linalg.norm(g) for g in g1])  # 计算梯度模
         print("迭代次数：%6d, 目标函数：%10.8f, 梯度模：%10.8f" % (step, y1, ng1))
         if ng1 < options['epsilon_g']:
@@ -377,7 +371,7 @@ def minimize_GD(F, *x0, **options):
         # 向负梯度方向迭代，并使用动量参数
         inc_x = [options['momentum'] * d - options['learn_rate'] * g for d, g in zip(inc_x, g1)]
         x1 = [x + inc for x, inc in zip(x1, inc_x)]  # 更新参数值
-        y1 = F.do_object_function(*x1)  # 计算目标函数值
+        y1 = F.do_object_function(step, *x1)  # 计算目标函数值
 
     return x1, y1
 
@@ -560,8 +554,8 @@ def minimize_CG(F, *x0, **options):
 
     # 计算起始位置的函数值、梯度、梯度模
     x1 = x0
-    y1 = F.do_object_function(*x1)
-    g1 = F.do_gradient_vector(*x1)
+    y1 = F.do_object_function(0,*x1)
+    g1 = F.do_gradient_vector(0,*x1)
     ng1 = sum([np.linalg.norm(g) for g in g1])  # 计算梯度模
 
     # 迭代寻优
@@ -571,19 +565,19 @@ def minimize_CG(F, *x0, **options):
             return x1, y1 # 如果梯度足够小，停止迭代
 
         # 沿d1方向线搜索
-        y2,x2 = options['line_search'](F,x1,g1,d1) # 执行线搜索
+        y2,x2 = options['line_search'](F,x1,g1,d1,step_idx=step) # 执行线搜索
 
         if step % options['reset'] == 0 or y1 <= y2: # 当达到重置点或者d1方向不是一个下降方向
             d1 = [-g for g in g1] # 重新设定搜索方向为负梯度方向
-            y2,x2 = options['line_search'](F,x1,g1,d1) # 执行线搜索
-            g2 = F.do_gradient_vector(*x2) # 计算x2位置的梯度
+            y2,x2 = options['line_search'](F,x1,g1,d1,step_idx=step) # 执行线搜索
+            g2 = F.do_gradient_vector(step,*x2) # 计算x2位置的梯度
             d2 = [-g for g in g2] # 搜索方向
             ng2 = sum([np.linalg.norm(g) for g in g2]) # 计算梯度模ng2
             x1,d1,g1,y1,ng1 = x2,d2,g2,y2,ng2
             print("迭代次数：%6d, 目标函数：%10.8f, 梯度模：%10.8f" % (step, y1, ng1))
             continue
 
-        g2 = F.do_gradient_vector(*x2) # 计算x2位置的梯度
+        g2 = F.do_gradient_vector(step,*x2) # 计算x2位置的梯度
         ng2 = sum([np.linalg.norm(g) for g in g2]) # 计算梯度模ng2
         beda = sum([q2.reshape(1,-1).dot((q2-q1).reshape(-1,1)) for q1,q2 in zip(g1,g2)]) / sum([g.reshape(1,-1).dot(g.reshape(-1,1)) for g in g1]) # g2'*(g2-g1)/(g1'*g1)
         d2 = [-g + beda[0,0] * d for g,d in zip(g2,d1)] # 计算x2处的搜索方向d2
@@ -592,18 +586,18 @@ def minimize_CG(F, *x0, **options):
 
 if __name__ == '__main__':
     class mytest(object):
-        def do_object_function(self,*x):
+        def do_object_function(self,step_idx,*x):
             x1 = x[0][0,0]
             x2 = x[0][0,1]
             return 4 * x1**2 + 4 * x2**2 - 4 * x1 * x2 - 12 * x2
-        def do_gradient_vector(self,*x):
+        def do_gradient_vector(self,step_idx,*x):
             x1 = x[0][0,0]
             x2 = x[0][0,1]
             return [np.array([8*x1-4*x2, 8*x2-4*x1-12])]
 
     F = mytest()
     x0 = [np.array([[-0.5, 1]])]
-    y0 = F.do_object_function(*x0)
-    g0 = F.do_gradient_vector(*x0)
+    y0 = F.do_object_function(0,*x0)
+    g0 = F.do_gradient_vector(0,*x0)
     x_opt,y_opt = minimize_CG(F,*x0)
     print(f"x={x_opt},y={y_opt}")
