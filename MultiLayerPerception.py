@@ -31,7 +31,7 @@ class MultilayerPerception(object):
         model_predict = n[-1]  # 模型的预测
         self.f_model_predict = theano.function([x] + w + b, model_predict)
 
-        object_function = 0.5 * (((model_predict - y) ** 2).sum(axis=1)).mean() + 1e-4 * sum([(w_i ** 2).sum() for w_i in w])
+        object_function = 0.5 * (((model_predict - y) ** 2).sum(axis=1)).mean() # + 1e-4 * sum([(w_i ** 2).sum() for w_i in w])
         self.f_object_function = theano.function([x, y] + w + b, object_function)
 
         gradient_vector = T.grad(object_function, w + b)
@@ -45,10 +45,10 @@ class MultilayerPerception(object):
     def do_model_predict(self, x):
         return self.f_model_predict(x, *self.parameters)
 
-    def do_object_function(self, *x):
+    def do_object_function(self, step_idx, *x):
         return self.f_object_function(self.datas, self.label, *x)
 
-    def do_gradient_vector(self, *x):
+    def do_gradient_vector(self, step_idx, *x):
         return self.f_gradient_vector(self.datas, self.label, *x)
 
 
@@ -67,12 +67,8 @@ if __name__ == '__main__':
     b2 = np.zeros((8,))
     w3 = 0.01 * np.random.randn(8, 1)
     b3 = np.zeros((1,))
-    z = model.do_object_function(w1, w2, w3, b1, b2, b3)
-    g = model.do_gradient_vector(w1, w2, w3, b1, b2, b3)
-    print(z)
-    print(g)
 
-    x_optimal, y_optimal = optimal.minimize_CG(model, w1, w2, w3, b1, b2, b3, max_step=50000)
+    x_optimal, y_optimal = optimal.minimize_CG(model, w1, w2, w3, b1, b2, b3)
 
     model.parameters = x_optimal
     predict = model.do_model_predict(train_datas)
