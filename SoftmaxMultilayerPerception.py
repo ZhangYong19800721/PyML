@@ -63,7 +63,15 @@ class SoftmaxMultilayerPerception(object):
             return self.f_object_function(self.datas, self.label, *x)
 
     def do_gradient_vector(self, step_idx, *x):
-        if self.minibatch_size > 0:
+        """
+            计算模型的梯度向量
+            输入：
+                x 模型的所有参数组成的列表，需要特别注意参数的顺序
+                step_idx 表示迭代次数
+            输出：
+                模型的梯度向量，列表，按顺序对应所有参数的梯度
+        """
+        if self.minibatch_size > 0: # 当指定minibatch的大小时需要从所有的训练数据中选取一部分作为minibatch
             N = self.datas.shape[0]  # 总训练样本数量
             minibatch_num = N // self.minibatch_size  # 得到minibatch的个数
             minibatch_idx = step_idx % minibatch_num  # 得到当前该取哪个minibatch
@@ -71,7 +79,7 @@ class SoftmaxMultilayerPerception(object):
             label_minibatch = self.label[select, :]  # 从训练数据中选择若干个样本组成一个minibatch
             datas_minibatch = self.datas[select, :]  # 从训练数据中选择若干个样本组成一个minibatch
             return self.f_gradient_vector(datas_minibatch, label_minibatch, *x)
-        else:
+        else: # 当没有指定minibatch的大小时，使用全量数据
             return self.f_gradient_vector(self.datas, self.label, *x)
 
 
