@@ -6,17 +6,16 @@ import theano
 import theano.tensor as T
 import optimal
 
-x = T.dmatrix('x')
+x = T.dvector('x')
 y = T.dmatrix('y')
-z = x + y
+z = x.dot(y)
 
 f = theano.function([x, y], z)
 
-a = np.arange(15).reshape(3, 5)
-b = np.ones((1, 5))
+a = np.arange(4).reshape((4,))
+b = np.ones((4, 4))
 print(a)
 print(b)
-c = a + b
-print(c)
 k = f(a, b)
 print(k)
+print(k+b)
