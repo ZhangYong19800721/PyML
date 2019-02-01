@@ -46,37 +46,33 @@ if __name__ == '__main__':
 
     # 加载MNIST训练数据
     train_datas, train_label, test_datas, test_label = utility.load_mnist()
+
+    # 准备训练图片
     train_image = train_datas.reshape((60000, 1, 28, 28))
     mnist_train_image = np.zeros((60000, 1, 32, 32))
     mnist_train_image[:,:,2:30,2:30] = train_image
+    mnist_train_image = torch.from_numpy(mnist_train_image).float()
+
+    # 准备测试图片
     test_image = test_datas.reshape((10000, 1, 28, 28))
     mnist_test_image = np.zeros((10000, 1, 32, 32))
     mnist_test_image[:,:,2:30,2:30] = test_image
+    mnist_test_image = torch.from_numpy(mnist_test_image).float()
 
+    # 准备训练标签
+    mnist_train_label = torch.from_numpy(train_label).float()
 
-    train_datas = torch.randn(10, 1, 32, 32)
-    output_data = cnn(train_datas)
-    print(output_data[0])
-
-    target = torch.randn(10)  # a dummy target, for example
-    target = target.view(1, -1)  # make it the same shape as output
+    # 目标函数MSE
     criterion = nn.MSELoss()
 
-    loss = criterion(output_data, target)
-    print(loss)
-
-    cnn.zero_grad()
-    loss.backward()
-
-    print("cnn.conv1.bias.grad = ", cnn.conv1.bias.grad)
-
-    # create optimizer
-    learn_rate = 0.01
+    # 准备最优化算法
+    learn_rate = 0.01 # 学习速度
     optimizer = optim.SGD(cnn.parameters(), lr=learn_rate)
 
-    # in your training loop:
-    optimizer.zero_grad()  # zero the gradient buffers
-    output_data = cnn(input_data)
-    loss = criterion(output_data, target)
-    loss.backward()
-    optimizer.step()  # Does the update
+    for step in range(1000):
+        optimizer.zero_grad()  # zero the gradient buffers
+        output_data = cnn(mnist_train_image)
+        loss = criterion(output_data, mnist_train_label)
+        print(f"step = {step}, loss = {loss}")
+        loss.backward()
+        optimizer.step()  # Does the update
