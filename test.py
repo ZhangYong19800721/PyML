@@ -1,8 +1,11 @@
-import numpy as np
-import theano
-import theano.tensor as T
+from keras.models import Sequential
+from keras.layers import Dense, Activation
 
-x = T.dscalar('x')
-y = 2*x
-f = theano.function([x],y)
-print(f(1))
+model = Sequential([
+    Dense(32, input_shape=(784,)),
+    Activation('relu'),
+    Dense(10),
+    Activation('softmax'),
+])
+
+print(model)
