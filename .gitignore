@@ -8,3 +8,5 @@ dist
 build
 .idea
 *.xml
+*.tar
+*.tar.gz

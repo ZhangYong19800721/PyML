@@ -73,7 +73,7 @@ if __name__ == '__main__':
     # 准备最优化算法
     learn_rate = 0.01 # 学习速度
     optimizer = optim.SGD(cnn.parameters(), lr=learn_rate, momentum = 0.9)
-    minibatch_size = 1000
+    minibatch_size = 100
 
     start_time = time.time()
 
@@ -81,7 +81,7 @@ if __name__ == '__main__':
     ave_loss = 0
 
     cnn.to(device)
-    for epoch in range(30): # 对全部的训练数据进行n次学习
+    for epoch in range(50): # 对全部的训练数据进行n次学习
         minibatch_loss_list = []
         for minibatch_idx in range(minibatchNum):
             minibatch_train_image = mnist_train_image[(minibatch_idx * minibatch_size):((minibatch_idx + 1) * minibatch_size), :, :, :]
