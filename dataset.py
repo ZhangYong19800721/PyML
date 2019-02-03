@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import scipy.io as sio
 import numpy as np
 
-def load_mnist():
+def load_mnist_k():
     """加载mnist训练数据"""
     mnist = sio.loadmat('./data/mnist.mat')
     train_datas = np.array(mnist['mnist_train_images'], dtype=float).T / 255
@@ -14,6 +14,15 @@ def load_mnist():
     test_datas = np.array(mnist['mnist_test_images'], dtype=float).T / 255
     test_label = mnist['mnist_test_labels'].reshape(-1)
     return train_datas, train_label, test_datas, test_label
+
+def load_mnist():
+    """加载mnist训练数据"""
+    mnist = sio.loadmat('./data/mnist.mat')
+    train_image = np.array(mnist['mnist_train_images']).reshape((28,28,1,-1)).transpose((3,2,0,1))
+    train_label = np.array(mnist['mnist_train_labels'], dtype=np.long).reshape(-1)
+    test_image = np.array(mnist['mnist_test_images']).reshape((28,28,1,-1)).transpose((3,2,0,1))
+    test_label = np.array(mnist['mnist_test_labels'], dtype=np.long).reshape(-1)
+    return train_image, train_label, test_image, test_label
 
 
 def load_mnist_g():

@@ -7,6 +7,7 @@ import dataset
 import numpy as np
 import time
 import sys
+import matplotlib.pyplot as plt
 
 
 class CNN(nn.Module):
@@ -44,48 +45,44 @@ class CNN(nn.Module):
 
 
 if __name__ == '__main__':
+    start_time = time.time()
+
     # 如果GPU可用就使用GPU
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     cnn = CNN()  # 初始化一个CNN的实例
 
     # 加载MNIST训练数据
-    train_datas, train_label, test_datas, test_label = dataset.load_mnist()
+    train_image, train_label, test_image, test_label = dataset.load_mnist()
 
-    # 准备训练图片
-    train_datas = train_datas.reshape((60000, 1, 28, 28))
-    mnist_train_image = np.zeros((60000, 1, 32, 32))
-    mnist_train_image[:,:,2:30,2:30] = train_datas
+    # 准备训练图片,尺寸扩展为32*32
+    mnist_train_image = np.zeros((60000, 1, 32, 32),dtype=np.uint8)
+    mnist_train_image[:,:,2:30,2:30] = train_image
     mnist_train_image = torch.from_numpy(mnist_train_image).float()
 
-    # 准备测试图片
-    test_datas = test_datas.reshape((10000, 1, 28, 28))
-    mnist_test_image = np.zeros((10000, 1, 32, 32))
-    mnist_test_image[:,:,2:30,2:30] = test_datas
+    # 准备测试图片,尺寸扩展为32*32
+    mnist_test_image = np.zeros((10000, 1, 32, 32),dtype=np.uint8)
+    mnist_test_image[:,:,2:30,2:30] = test_image
     mnist_test_image = torch.from_numpy(mnist_test_image).float()
 
     # 准备训练标签
-    mnist_train_label = torch.from_numpy(train_label).float()
+    mnist_train_label = torch.from_numpy(train_label).long()
 
-    # 目标函数MSE
-    criterion = nn.MSELoss()
+    # 目标函数CrossEntropy
+    criterion = nn.CrossEntropyLoss()
 
     # 准备最优化算法
-    learn_rate = 0.01 # 学习速度
-    optimizer = optim.SGD(cnn.parameters(), lr=learn_rate, momentum = 0.9)
+    optimizer = optim.SGD(cnn.parameters(), lr=0.001, momentum = 0.9)
+
     minibatch_size = 100
-
-    start_time = time.time()
-
-    minibatchNum = int(60000/minibatch_size)
+    minibatch_num = int(60000 / minibatch_size)
     ave_loss = 0
-
     cnn.to(device)
-    for epoch in range(50): # 对全部的训练数据进行n次学习
+    for epoch in range(30): # 对全部的训练数据进行n次学习
         minibatch_loss_list = []
-        for minibatch_idx in range(minibatchNum):
+        for minibatch_idx in range(minibatch_num):
             minibatch_train_image = mnist_train_image[(minibatch_idx * minibatch_size):((minibatch_idx + 1) * minibatch_size), :, :, :]
-            minibatch_train_label = mnist_train_label[(minibatch_idx * minibatch_size):((minibatch_idx + 1) * minibatch_size), :]
+            minibatch_train_label = mnist_train_label[(minibatch_idx * minibatch_size):((minibatch_idx + 1) * minibatch_size)]
             minibatch_train_image = minibatch_train_image.to(device)
             minibatch_train_label = minibatch_train_label.to(device)
 
@@ -93,7 +90,7 @@ if __name__ == '__main__':
             output_data = cnn(minibatch_train_image)
             loss = criterion(output_data, minibatch_train_label)
             minibatch_loss_list.append(loss.item())
-            if minibatch_idx == minibatchNum-1:
+            if minibatch_idx == minibatch_num-1:
                 ave_loss = sum(minibatch_loss_list) / len(minibatch_loss_list)
                 print("epoch:%5d, aveloss:%10.8f" % (epoch, ave_loss))
             loss.backward()

@@ -10,3 +10,4 @@ build
 *.xml
 *.tar
 *.tar.gz
+*.zip
