@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from skimage import io
-import utility
+import dataset
 import numpy as np
 import time
 import sys
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     cnn = CNN()  # 初始化一个CNN的实例
 
     # 加载MNIST训练数据
-    train_datas, train_label, test_datas, test_label = utility.load_mnist()
+    train_datas, train_label, test_datas, test_label = dataset.load_mnist()
 
     # 准备训练图片
     train_datas = train_datas.reshape((60000, 1, 28, 28))

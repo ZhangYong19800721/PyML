@@ -136,8 +136,12 @@ if __name__ == '__main__':
     model.label = train_label
 
     # 训练
+    import time
+    start_time = time.time()
     x_optimal, y_optimal = optimal.minimize_SGD(model, Wsh, Wvh, Bs, Bv, Bh, max_step=1000000, learn_rate=0.01,
                                                 window=600)
+    end_time = time.time()
+    print(f'train_time_cost = {end_time - start_time}')
 
     model.parameters = x_optimal  # 绑定参数
     predict = model.do_model_predict(test_datas)
