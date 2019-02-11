@@ -8,6 +8,7 @@ import numpy as np
 import time
 import sys
 import matplotlib.pyplot as plt
+from Dataset_MNIST import *
 
 
 class CNN(nn.Module):
@@ -53,20 +54,9 @@ if __name__ == '__main__':
     cnn = CNN()  # 初始化一个CNN的实例
 
     # 加载MNIST训练数据
-    train_image, train_label, test_image, test_label = dataset.load_mnist()
-
-    # 准备训练图片,尺寸扩展为32*32
-    mnist_train_image = np.zeros((60000, 1, 32, 32),dtype=np.uint8)
-    mnist_train_image[:,:,2:30,2:30] = train_image
-    mnist_train_image = torch.from_numpy(mnist_train_image).float()
-
-    # 准备测试图片,尺寸扩展为32*32
-    mnist_test_image = np.zeros((10000, 1, 32, 32),dtype=np.uint8)
-    mnist_test_image[:,:,2:30,2:30] = test_image
-    mnist_test_image = torch.from_numpy(mnist_test_image).float()
-
-    # 准备训练标签
-    mnist_train_label = torch.from_numpy(train_label).long()
+    myTransform = transforms.Compose([Reshape((28,28)),Border((32,32)),ToTensor()]) # 数据预处理
+    trainDataSet = Dataset_Train_MNIST('./data/mnist.mat',myTransform) # 加载训练数据集
+    trainDataLoader = DataLoader(trainDataSet, batch_size=100) # minibatch的大小为100
 
     # 目标函数CrossEntropy
     criterion = nn.CrossEntropyLoss()
@@ -74,37 +64,38 @@ if __name__ == '__main__':
     # 准备最优化算法
     optimizer = optim.SGD(cnn.parameters(), lr=0.001, momentum = 0.9)
 
-    minibatch_size = 100
-    minibatch_num = int(60000 / minibatch_size)
-    ave_loss = 0
     cnn.to(device)
-    for epoch in range(30): # 对全部的训练数据进行n次学习
-        minibatch_loss_list = []
-        for minibatch_idx in range(minibatch_num):
-            minibatch_train_image = mnist_train_image[(minibatch_idx * minibatch_size):((minibatch_idx + 1) * minibatch_size), :, :, :]
-            minibatch_train_label = mnist_train_label[(minibatch_idx * minibatch_size):((minibatch_idx + 1) * minibatch_size)]
-            minibatch_train_image = minibatch_train_image.to(device)
-            minibatch_train_label = minibatch_train_label.to(device)
+    batch_loss = []
+    for epoch in range(30): # 对全部的训练数据进行n次遍历
+        for batch_id, batch in enumerate(trainDataLoader):
+            train_images = batch['image'].to(device)
+            train_labels = batch['label'].to(device)
 
             optimizer.zero_grad()  # zero the gradient buffers
-            output_data = cnn(minibatch_train_image)
-            loss = criterion(output_data, minibatch_train_label)
-            minibatch_loss_list.append(loss.item())
-            if minibatch_idx == minibatch_num-1:
-                ave_loss = sum(minibatch_loss_list) / len(minibatch_loss_list)
-                print("epoch:%5d, aveloss:%10.8f" % (epoch, ave_loss))
+            output_data = cnn(train_images)
+            loss = criterion(output_data, train_labels)
+            batch_loss.append(loss.item())
+            while len(batch_loss) > len(trainDataLoader):
+                batch_loss.pop(0)
+            ave_loss = sum(batch_loss) / len(batch_loss)
+            print("epoch:%5d, batch_id:%5d, aveloss:%10.8f" % (epoch, batch_id, ave_loss))
             loss.backward()
             optimizer.step()  # Does the update
 
     end_time = time.time()
-    print(f'time_cost = {end_time - start_time}s')
+    print(f'train_time = {end_time - start_time}s')
 
+    # 加载MNIST测试数据
+    testDataSet = Dataset_Test_MNIST('./data/mnist.mat',myTransform) # 加载测试数据集
+    testDataLoader = DataLoader(testDataSet, batch_size=100) # minibatch的大小为100
+    error_count = 0
     with torch.no_grad():
-        mnist_test_image = mnist_test_image.to(device)
-        predict = cnn(mnist_test_image)
+        for batch_id, batch in enumerate(testDataLoader):
+            test_images = batch['image'].to(device)
+            test_lables = batch['label'].numpy()
+            predict = cnn(test_images).to('cpu').numpy()
+            predict = np.argmax(predict, axis=1)
+            error_count += np.sum((predict != test_lables) + 0.0)
 
-    predict = predict.to("cpu")
-    predict = predict.numpy()
-    predict = np.argmax(predict,axis=1)
-    error_rate = np.sum((predict != test_label) + 0.0) / len(test_label)
+    error_rate = error_count / len(testDataSet)
     print(f"error_rate = {error_rate}")
