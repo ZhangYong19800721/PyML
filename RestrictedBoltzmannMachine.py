@@ -6,7 +6,7 @@ import numpy as np
 import theano
 import theano.tensor as T
 import optimal
-import utility
+import mydataset
 
 
 class RestrictedBoltzmannMachine(object):
@@ -79,7 +79,7 @@ class RestrictedBoltzmannMachine(object):
 
 if __name__ == '__main__':
     # 准备训练数据
-    train_datas, train_label, test_datas, test_label = utility.load_mnist()
+    train_datas, train_label, test_datas, test_label = mydataset.load_mnist_k()
 
     # 初始化模型参数
     W = 0.01 * np.random.randn(784, 2000)
