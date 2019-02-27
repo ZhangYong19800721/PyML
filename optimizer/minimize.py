@@ -15,13 +15,16 @@ class SGD(object):
             self.options['learn_rate'] = 0.01  # 缺省的学习速度
 
         if 'max_epoch' not in self.options:
-            self.options['max_epoch'] = 30  # 缺省最多遍历全部的训练数据max_epoch遍
+            self.options['max_epoch'] = 100  # 缺省最多遍历全部的训练数据max_epoch遍
 
         if 'momentum' not in self.options:
             self.options['momentum'] = 0.9  # 缺省的动量参数
 
-        updates = [(p, p - self.options['learn_rate'] * g) for p, g in zip(model.parameters.values(), model.grad)]
-        self.f_update = theano.function([], [], updates=updates)
+        self.delta = [theano.shared(p.get_value() * 0.0, name=f'delta_{k}') for k, p in self.model.parameters.items()]
+        update_delta = [(d, self.options['momentum'] * d - self.options['learn_rate'] * g) for d, g in
+                        zip(self.delta, model.grad)]
+        update_param = [(p, p + d) for p, d in zip(model.parameters.values(), self.delta)]
+        self.f_update = theano.function([], [], updates=update_delta + update_param)
 
     def update(self, X, Y):
         cost = self.model.f_grad(X, Y)  # 计算目标函数和梯度，梯度被存储在model.grad中
@@ -32,11 +35,14 @@ class SGD(object):
         print("开始训练模型.....")
         begin = time.clock()  # 记录起始时间
 
+        window = len(dataset)
+        avcost = 0
         for epoch in range(self.options['max_epoch']):
             for minibatch_idx in range(len(dataset)):
                 minibach, _ = dataset[minibatch_idx]
                 cost = self.update(minibach, minibach)
-                print(f'epoch: {epoch}, step: {minibatch_idx}, cost: {cost}')
+                avcost = (1 - 1 / window) * avcost + (1 / window) * cost  # 更新滑动均值
+                print('epoch: %3d, step: %5d, cost: %12.8f, average: %12.8f' % (epoch, minibatch_idx, cost, avcost))
 
         finish = time.clock()  # 记录起始时间
         print(f"训练结束，耗时{(finish - begin) / 60}分钟")

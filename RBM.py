@@ -10,7 +10,7 @@ import numpy as np
 import theano
 import theano.tensor as T
 import collections
-from optimizer import SGD
+from optimizer import minimize
 from dataset import mnist
 from theano.tensor.shared_randomstreams import RandomStreams
 
@@ -79,7 +79,8 @@ class RBM(object):
         H1p = T.nnet.sigmoid(V1p.dot(self.parameters['W']) + self.parameters['Bh'])  # 隐层的激活概率（这里使用V1p而不是V1s得到更好的无偏抽样）
         cost = ((V1p - Y) ** 2).sum(axis=1).mean()  # 整体重建误差
         sampleNum = T.cast(V0s.shape[0], 'floatX')
-        grad_W = -(V0s.T.dot(H0p) - V1p.T.dot(H1p)) / sampleNum  # W的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
+        weight_cost = 1e-4
+        grad_W = -(V0s.T.dot(H0p) - V1p.T.dot(H1p)) / sampleNum + weight_cost * self.parameters['W']  # W的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
         grad_Bv = -(V0s - V1p).sum(axis=0).T / sampleNum  # Bv的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
         grad_Bh = -(H0s - H1p).sum(axis=0).T / sampleNum  # Bh的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
 
@@ -105,6 +106,5 @@ if __name__ == '__main__':
     rbm.initialize_parameters()
     rbm.initialize_model()
     
-    optimizer = SGD.SGD(rbm)
+    optimizer = minimize.SGD(rbm)
     optimizer.train(train_set)
-    
