@@ -6,6 +6,7 @@
 import theano
 import time
 
+
 class SGD(object):
     def __init__(self, model, **options):
         self.model = model
@@ -26,16 +27,16 @@ class SGD(object):
         cost = self.model.f_grad(X, Y)  # 计算目标函数和梯度，梯度被存储在model.grad中
         self.f_update()  # 更新梯度
         return cost
-    
-    def train(self,dataset):
+
+    def train(self, dataset):
         print("开始训练模型.....")
-        begin = time.clock() # 记录起始时间
-        
+        begin = time.clock()  # 记录起始时间
+
         for epoch in range(self.options['max_epoch']):
             for minibatch_idx in range(len(dataset)):
-                minibach,_ = dataset[minibatch_idx]
-                cost = self.update(minibach,minibach)
+                minibach, _ = dataset[minibatch_idx]
+                cost = self.update(minibach, minibach)
                 print(f'epoch: {epoch}, step: {minibatch_idx}, cost: {cost}')
-                
-        finish = time.clock() # 记录起始时间
-        print(f"训练结束，耗时{(finish - begin)/60}分钟")
+
+        finish = time.clock()  # 记录起始时间
+        print(f"训练结束，耗时{(finish - begin) / 60}分钟")
