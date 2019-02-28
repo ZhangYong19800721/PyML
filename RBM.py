@@ -24,11 +24,11 @@ class RBM(object):
 
     # 构造函数
     # 输入：
-    #      visualDim (int) 可见神经元的个数
-    #      hiddenDim (int) 隐藏神经元的个数
-    def __init__(self, visualDim, hiddenDim):
-        self.visualDim = visualDim
-        self.hiddenDim = hiddenDim
+    #      visual_dim (int) 可见神经元的个数
+    #      hidden_dim (int) 隐藏神经元的个数
+    def __init__(self, visual_dim, hidden_dim):
+        self.visual_dim = visual_dim
+        self.hidden_dim = hidden_dim
         self.parameters = collections.OrderedDict()  # 模型的参数集合
 
     # 初始化模型参数
@@ -38,24 +38,26 @@ class RBM(object):
     #     Bh（numpy ndarray，None）隐层偏置，默认为None
     def initialize_parameters(self, W=None, Bv=None, Bh=None):
         if W is not None:
-            self.visualDim = W.shape[0]
-            self.hiddenDim = W.shape[1]
+            visual_dim = W.shape[0]
+            hidden_dim = W.shape[1]
+            assert visual_dim == self.visual_dim
+            assert hidden_dim == self.hidden_dim
         else:
-            W = np.asarray(0.1 * np.random.randn(self.visualDim, self.hiddenDim), dtype=theano.config.floatX)  # 权值矩阵
+            W = np.asarray(0.1 * np.random.randn(self.visual_dim, self.hidden_dim), dtype=theano.config.floatX)  # 权值矩阵
         self.parameters['W'] = theano.shared(W, name='W')  # 权值矩阵
 
         if Bv is not None:
-            visualDim = Bv.shape[0]
-            assert visualDim == self.visualDim
+            visual_dim = Bv.shape[0]
+            assert visual_dim == self.visual_dim
         else:
-            Bv = np.asarray(np.zeros(self.visualDim), dtype=theano.config.floatX)  # 显层的偏置
+            Bv = np.asarray(np.zeros(self.visual_dim), dtype=theano.config.floatX)  # 显层的偏置
         self.parameters['Bv'] = theano.shared(Bv, name='Bv')  # 显层的偏置
 
         if Bh is not None:
-            hiddenDim = Bh.shape[0]
-            assert hiddenDim == self.hiddenDim
+            hidden_dim = Bh.shape[0]
+            assert hidden_dim == self.hidden_dim
         else:
-            Bh = np.asarray(np.zeros(self.hiddenDim), dtype=theano.config.floatX)  # 隐层的偏置
+            Bh = np.asarray(np.zeros(self.hidden_dim), dtype=theano.config.floatX)  # 隐层的偏置
         self.parameters['Bh'] = theano.shared(Bh, name='Bh')  # 隐层的偏置
 
     # 初始化模型
