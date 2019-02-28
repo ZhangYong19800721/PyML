@@ -3,6 +3,7 @@
     随机梯度下降SGD（Stochastic Gradient Decend）
 """
 
+import numpy as np
 import theano
 import time
 
@@ -21,8 +22,7 @@ class SGD(object):
             self.options['momentum'] = 0.9  # 缺省的动量参数
 
         self.delta = [theano.shared(p.get_value() * 0.0, name=f'delta_{k}') for k, p in self.model.parameters.items()]
-        update_delta = [(d, self.options['momentum'] * d - self.options['learn_rate'] * g) for d, g in
-                        zip(self.delta, model.grad)]
+        update_delta = [(d, self.options['momentum'] * d - self.options['learn_rate'] * g) for d, g in zip(self.delta, model.grad)]
         update_param = [(p, p + d) for p, d in zip(model.parameters.values(), self.delta)]
         self.f_update = theano.function([], [], updates=update_delta + update_param)
 
@@ -36,7 +36,7 @@ class SGD(object):
         begin = time.clock()  # 记录起始时间
 
         window = len(dataset)
-        avcost = 0
+        avcost = self.update(dataset[0][0], dataset[0][0])
         for epoch in range(self.options['max_epoch']):
             for minibatch_idx in range(len(dataset)):
                 minibach, _ = dataset[minibatch_idx]
@@ -44,5 +44,5 @@ class SGD(object):
                 avcost = (1 - 1 / window) * avcost + (1 / window) * cost  # 更新滑动均值
                 print('epoch: %3d, step: %5d, cost: %12.8f, average: %12.8f' % (epoch, minibatch_idx, cost, avcost))
 
-        finish = time.clock()  # 记录起始时间
+        finish = time.clock()  # 记录结束时间
         print(f"训练结束，耗时{(finish - begin) / 60}分钟")
