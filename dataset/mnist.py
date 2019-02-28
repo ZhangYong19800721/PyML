@@ -18,8 +18,11 @@ class train_set(object):
         return self.datas.shape[0] // self.minibatch_size
 
     def __getitem__(self, item):
-        return self.datas[(item*self.minibatch_size):((item+1)*self.minibatch_size), :], self.label[(item*self.minibatch_size):((item+1)*self.minibatch_size)]
-    
+        if self.minibatch_size > 1:
+            return self.datas[(item*self.minibatch_size):((item+1)*self.minibatch_size), :], self.label[(item*self.minibatch_size):((item+1)*self.minibatch_size)]
+        else:
+            return self.datas[item], self.label[item]
+
     def set_minibatch_size(self,size):
         self.minibatch_size = size
     

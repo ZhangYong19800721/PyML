@@ -37,21 +37,21 @@ class RBM(object):
     #     Bv（numpy ndarray，None）显层偏置，默认为None
     #     Bh（numpy ndarray，None）隐层偏置，默认为None
     def initialize_parameters(self, W=None, Bv=None, Bh=None):
-        if W:
+        if W is not None:
             self.visualDim = W.shape[0]
             self.hiddenDim = W.shape[1]
         else:
             W = np.asarray(0.1 * np.random.randn(self.visualDim, self.hiddenDim), dtype=theano.config.floatX)  # 权值矩阵
         self.parameters['W'] = theano.shared(W, name='W')  # 权值矩阵
 
-        if Bv:
+        if Bv is not None:
             visualDim = Bv.shape[0]
             assert visualDim == self.visualDim
         else:
             Bv = np.asarray(np.zeros(self.visualDim), dtype=theano.config.floatX)  # 显层的偏置
         self.parameters['Bv'] = theano.shared(Bv, name='Bv')  # 显层的偏置
 
-        if Bh:
+        if Bh is not None:
             hiddenDim = Bh.shape[0]
             assert hiddenDim == self.hiddenDim
         else:
@@ -101,9 +101,14 @@ class RBM(object):
 if __name__ == '__main__':
     # 准备训练数据
     train_set = mnist.train_set('./data/mnist.mat')
+    allimages = train_set[0:len(train_set)][0]
+    Bv = np.mean(allimages, axis=0)
+    Bv = np.log(Bv / (1 - Bv))
+    Bv[Bv < -100] = -100
+    Bv[Bv > +100] = +100
     train_set.set_minibatch_size(100)
     rbm = RBM(784, 2000)
-    rbm.initialize_parameters()
+    rbm.initialize_parameters(Bv=Bv)
     rbm.initialize_model()
     
     optimizer = minimize.SGD(rbm)
