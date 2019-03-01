@@ -9,12 +9,11 @@ import theano
 import theano.tensor as T
 import numpy as np
 
-def sample_with_softmax(logits, size):
-# logits为输入数据
-# size为采样数
-    pro = T.nnet.softmax(logits)
-    return np.random.choice(len(logits), size, p=pro)
+A = T.fmatrix('A')
+D = theano.tensor.basic.choose(1, A)
+f = theano.function([A],[D])
 
+x = np.array([[0.1,0.1,0.8],[0.2,0.4,0.4],[0.7,0.2,0.1]],dtype='float32')
+d = f(x)
 
-
-z = sample_with_softmax(T.fvector([[1,2,3,4,5]]),3)
+print(d)
