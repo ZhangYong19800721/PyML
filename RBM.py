@@ -4,8 +4,6 @@
     基于theano实现，使用GPU训练
 """
 
-import matplotlib.pyplot as plt
-import scipy.io as sio
 import numpy as np
 import theano
 import theano.tensor as T
@@ -62,34 +60,43 @@ class RBM(object):
 
     # 初始化模型
     def initialize_model(self):
+        def forward(V, **P):
+            Hp = T.nnet.sigmoid(V.dot(P['W']) + P['Bh'])  # 隐层的激活概率计算公式
+            Hs = (srng.uniform(Hp.shape) < Hp) + 0  # 隐层抽样状态。加0是为了把一个bool矩阵转换为整数矩阵
+            return Hp, Hs
+
+        def backward(H, **P):
+            Vp = T.nnet.sigmoid(H.dot(P['W'].T) + P['Bv'])  # 显层的激活概率计算公式
+            Vs = (srng.uniform(Vp.shape) < Vp) + 0  # 显层抽样状态。加0是为了把一个bool矩阵转换为整数矩阵
+            return Vp, Vs
+
         V = T.fmatrix('V')  # 显层的状态
         H = T.fmatrix('H')  # 隐层的状态
 
-        Hp = T.nnet.sigmoid(V.dot(self.parameters['W']) + self.parameters['Bh'])  # 隐层的激活概率计算公式
-        Hs = (srng.uniform(Hp.shape) < Hp) + 0  # 隐层抽样状态。加0是为了把一个bool矩阵转换为整数矩阵
-        Vp = T.nnet.sigmoid(H.dot(self.parameters['W'].T) + self.parameters['Bv'])  # 显层的激活概率计算公式
-        Vs = (srng.uniform(Vp.shape) < Vp) + 0  # 显层抽样状态。加0是为了把一个bool矩阵转换为整数矩阵
+        Hp, Hs = forward(V, **self.parameters)
+        Vp, Vs = backward(H, **self.parameters)
         self._f_foreward = theano.function([V], [Hp, Hs])  # 前向传播函数,输出隐层的激活概率和状态抽样
         self._f_backward = theano.function([H], [Vp, Vs])  # 反向传播函数,输出显层的激活概率和状态抽样
 
         X = T.fmatrix('X')  # 网络的输入
         Y = T.fmatrix('Y')  # 网络的输出(期望输出)
         V0s = X  # 显层的初始状态
-        H0p = T.nnet.sigmoid(V0s.dot(self.parameters['W']) + self.parameters['Bh'])  # 隐层的激活概率
-        H0s = (srng.uniform(H0p.shape) < H0p) + 0  # 隐层的抽样状态
-        V1p = T.nnet.sigmoid(H0s.dot(self.parameters['W'].T) + self.parameters['Bv'])  # 显层的重建激活概率
-        H1p = T.nnet.sigmoid(V1p.dot(self.parameters['W']) + self.parameters['Bh'])  # 隐层的激活概率（这里使用V1p而不是V1s得到更好的无偏抽样）
-        cost = ((V1p - Y) ** 2).sum(axis=1).mean()  # 整体重建误差
-        sampleNum = T.cast(V0s.shape[0], 'floatX')
+        H0p, H0s = forward(V0s, **self.parameters)
+        V1p, V1s = backward(H0s, **self.parameters)
+        H1p, H1s = forward(V1p, **self.parameters)  # 隐层的激活概率（这里使用V1p而不是V1s得到更好的无偏抽样）
+
+        cost = ((V1p - X) ** 2).sum(axis=1).mean()  # 整体重建误差
+        sampleNum = T.cast(X.shape[0], 'floatX')
         weight_cost = 1e-4
-        grad_W = -(V0s.T.dot(H0p) - V1p.T.dot(H1p)) / sampleNum + weight_cost * self.parameters['W']  # W的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
-        grad_Bv = -(V0s - V1p).sum(axis=0).T / sampleNum  # Bv的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
-        grad_Bh = -(H0s - H1p).sum(axis=0).T / sampleNum  # Bh的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
+        # W的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
+        grad_W = -(V0s.T.dot(H0p) - V1p.T.dot(H1p)) / sampleNum + weight_cost * self.parameters['W']
+        grad_Bv = -(V0s - V1p).mean(axis=0).T  # Bv的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
+        grad_Bh = -(H0s - H1p).mean(axis=0).T  # Bh的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
 
         self.grad = [theano.shared(p.get_value() * 0.0, name=f'grad_{k}') for k, p in self.parameters.items()]
         grad = [grad_W, grad_Bv, grad_Bh]  # 梯度
-        updates=[(_g,g) for _g,g in zip(self.grad, grad)]
-        self._f_grad = theano.function([X,Y], cost, updates=updates)  # 该函数计算模型的梯度，但是不更新参数
+        updates = [(_g, g) for _g, g in zip(self.grad, grad)]
+        self._f_grad = theano.function([X, Y], cost, updates=updates, on_unused_input='ignore')  # 该函数计算模型的梯度，但是不更新参数
 
     # 前向过程
     def f_forward(self, V):
@@ -100,8 +107,8 @@ class RBM(object):
         return self._f_backward(H)
 
     # 计算梯度,梯度向量被放在self.grad(theano shared variable)中，该函数会返回目标函数的值
-    def f_grad(self,X,Y):
-        return self._f_grad(X,X)
+    def f_grad(self, X, Y):
+        return self._f_grad(X, Y)
 
 
 if __name__ == '__main__':

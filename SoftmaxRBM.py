@@ -3,6 +3,7 @@
     带softmax神经元的约束玻尔兹曼机（SoftmaxRBM）
 """
 
+import sys
 import numpy as np
 import theano
 import theano.tensor as T
@@ -123,10 +124,10 @@ class SoftmaxRBM(object):
         cost = (((S1p - Y) ** 2).sum(axis=1) + ((V1p - X) ** 2).sum(axis=1)).mean()  # 整体重建误差
         sampleNum = T.cast(X.shape[0], 'floatX')
         weight_cost = 1e-4
-        grad_Wsh = -(S0s.T.dot(H0p) - S1s.T.dot(H1p)) / sampleNum + weight_cost * self.parameters[
-            'Wsh']  # Wsh的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
-        grad_Wvh = -(V0s.T.dot(H0p) - V1p.T.dot(H1p)) / sampleNum + weight_cost * self.parameters[
-            'Wvh']  # Wvh的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
+        # Wsh的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
+        grad_Wsh = -(S0s.T.dot(H0p) - S1s.T.dot(H1p)) / sampleNum + weight_cost * self.parameters['Wsh']
+        # Wvh的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
+        grad_Wvh = -(V0s.T.dot(H0p) - V1p.T.dot(H1p)) / sampleNum + weight_cost * self.parameters['Wvh']
         grad_Bs = -(S0s - S1p).mean(axis=0).T  # Bs的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
         grad_Bv = -(V0s - V1p).mean(axis=0).T  # Bv的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
         grad_Bh = -(H0s - H1p).mean(axis=0).T  # Bh的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
@@ -148,18 +149,40 @@ class SoftmaxRBM(object):
     def f_grad(self, X, Y):
         return self._f_grad(X, Y)
 
+    def predit(self, X):
+        """使用模型进行分类预测"""
+        P = self.parameters  # 得到模型的参数
+        Wsh = P['Wsh'].get_value()
+        Wvh = P['Wvh'].get_value()
+        Bs  = P['Bs' ].get_value()
+        Bv  = P['Bv' ].get_value()
+        Bh  = P['Bh' ].get_value()
+
+        num_samples = X.shape[0]  # 需要预测的样本数量
+        num_softmax = Bs.shape[0]  # 类别数量
+        free_energy = sys.float_info.max * np.ones((num_samples, num_softmax))  # 初始化自由能量为最大值
+
+        for n in range(num_softmax):
+            s = np.zeros((num_samples, num_softmax))
+            s[:, n] = 1
+            e1 = - s.dot(Bs) - X.dot(Bv)
+            e2 = - np.sum(np.log(1 + np.exp(s.dot(Wsh) + X.dot(Wvh) + Bh)), axis=1)
+            free_energy[:, n] = e1 + e2
+
+        return np.argmin(free_energy, axis=1)
+
 
 if __name__ == '__main__':
-    # 准备训练数据 TODO
+    # 准备训练数据
     train_set = mnist.train_set('./data/mnist.mat')
-    images, labels = train_set[0:len(train_set)]
-    Bv = np.mean(images, axis=0)
+    train_images, train_labels = train_set[0:len(train_set)]
+    Bv = np.mean(train_images, axis=0)
     Bv = np.log(Bv / (1 - Bv))
     Bv[Bv < -100] = -100
     Bv[Bv > +100] = +100
 
-    labels = np.choose(labels.astype('int'), np.eye(10, dtype='float32'))
-    Bs = np.mean(labels, axis=0)
+    train_labels = np.choose(train_labels.astype('int'), np.eye(10, dtype='float32'))
+    Bs = np.mean(train_labels, axis=0)
     Bs = np.log(Bs / (1 - Bs))
     Bs[Bs < -100] = -100
     Bs[Bs > +100] = +100
@@ -169,5 +192,11 @@ if __name__ == '__main__':
     softmax_rbm.initialize_parameters(Bs=Bs, Bv=Bv)
     softmax_rbm.initialize_model()
 
-    optimizer = minimize.SGD(softmax_rbm)
+    optimizer = minimize.SGD(softmax_rbm, max_epoch=100)
     optimizer.train(train_set)
+
+    test_set = mnist.test_set('./data/mnist.mat')
+    test_images, test_labels = test_set[0:len(test_set)]
+    guess = softmax_rbm.predit(test_images)
+    error = (guess != np.reshape(test_labels, guess.shape)).sum() / len(test_labels)
+    print(f"错误率：{error}")
