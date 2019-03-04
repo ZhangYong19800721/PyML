@@ -24,11 +24,11 @@ class SGD(object):
         self.delta = [theano.shared(p.get_value() * 0.0, name=f'delta_{k}') for k, p in self.model.parameters.items()]
         update_delta = [(d, self.options['momentum'] * d - self.options['learn_rate'] * g) for d, g in zip(self.delta, model.grad)]
         update_param = [(p, p + d) for p, d in zip(model.parameters.values(), self.delta)]
-        self.f_update = theano.function([], [], updates=update_delta + update_param)
+        self._f_update = theano.function([], [], updates=update_delta + update_param)
 
     def update(self, X, Y):
         cost = self.model.f_grad(X, Y)  # 计算目标函数和梯度，梯度被存储在model.grad中
-        self.f_update()  # 更新梯度
+        self._f_update()  # 更新梯度
         return cost
 
     def train(self, dataset):
@@ -36,11 +36,11 @@ class SGD(object):
         begin = time.clock()  # 记录起始时间
 
         window = len(dataset)
-        avcost = self.update(dataset[0][0], dataset[0][0])
+        avcost = self.update(dataset[0][0], dataset[0][1])
         for epoch in range(self.options['max_epoch']):
             for minibatch_idx in range(len(dataset)):
-                minibach, _ = dataset[minibatch_idx]
-                cost = self.update(minibach, minibach)
+                minibach, label = dataset[minibatch_idx]
+                cost = self.update(minibach, label)
                 avcost = (1 - 1 / window) * avcost + (1 / window) * cost  # 更新滑动均值
                 print('epoch: %3d, step: %5d, cost: %12.8f, average: %12.8f' % (epoch, minibatch_idx, cost, avcost))
 

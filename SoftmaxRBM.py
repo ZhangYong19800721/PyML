@@ -79,62 +79,95 @@ class SoftmaxRBM(object):
 
     # 初始化模型
     def initialize_model(self):
+        # 前向运算函数
+        # S, softmax 的状态
+        # V, visual  的状态
+        # P, 模型参数
+        def forward(S, V, **P):
+            SV = T.concatenate([S, V], axis=1)
+            WW = T.concatenate([P['Wsh'], P['Wvh']], axis=0)
+            Hp = T.nnet.sigmoid(SV.dot(WW) + P['Bh'])  # hidden 激活概率计算公式
+            Hs = (srng.uniform(Hp.shape) < Hp) + 0  # hidden  抽样状态。加0是为了把一个bool矩阵转换为整数矩阵
+            return Hp, Hs
+
+        # 反向运算函数
+        # 输入：
+        # H, hidden  的状态
+        # P, 模型参数
+        def backward(H, **P):
+            Sp = T.nnet.softmax(H.dot(P['Wsh'].T) + P['Bs'])  # softmax 激活概率计算公式
+            Vp = T.nnet.sigmoid(H.dot(P['Wvh'].T) + P['Bv'])  # visual  激活概率计算公式
+            CC = T.extra_ops.cumsum(Sp, axis=1) < srng.uniform((Sp.shape[0], 1))
+            Ss = T.basic.choose(T.reshape(CC.sum(axis=1), (-1, 1)), T.eye(Sp.shape[1]))  # softmax 抽样状态
+            Vs = (srng.uniform(Vp.shape) < Vp) + 0  # visual  抽样状态。加0是为了把一个bool矩阵转换为整数矩阵
+            return Sp, Vp, Ss, Vs
+
         S = T.fmatrix('S')  # softmax 的状态
         V = T.fmatrix('V')  # visual 的状态
         H = T.fmatrix('H')  # hidden 的状态
 
-        Hp = T.nnet.sigmoid(
-            T.concatenate([S, V], axis=1).dot(T.concatenate([self.parameters['Wsh'], self.parameters['Wvh']], axis=0)) +
-            self.parameters['Bh'])  # hidden 激活概率计算公式
-        Vp = T.nnet.sigmoid(H.dot(self.parameters['Wvh'].T) + self.parameters['Bv'])  # visual  激活概率计算公式
-        Sp = T.nnet.softmax(H.dot(self.parameters['Wsh'].T) + self.parameters['Bs'])  # softmax 激活概率计算公式
+        Hp, Hs = forward(S, V, **self.parameters)
+        Sp, Vp, Ss, Vs = backward(H, **self.parameters)
 
-        Ss = (srng.uniform(Sp.shape) < Sp) + 0  # softmax 抽样状态 TODO
-        Hs = (srng.uniform(Hp.shape) < Hp) + 0  # hidden  抽样状态。加0是为了把一个bool矩阵转换为整数矩阵
-        Vs = (srng.uniform(Vp.shape) < Vp) + 0  # visual  抽样状态。加0是为了把一个bool矩阵转换为整数矩阵
-        self.f_foreward = theano.function([S, V], [Hp, Hs])  # 前向传播函数,输出隐层的激活概率和状态抽样
-        self.f_backward = theano.function([H], [Sp, Vp, Ss, Vs])  # 反向传播函数,输出softmax & visual的激活概率和状态抽样
+        self._f_foreward = theano.function([S, V], [Hp, Hs])  # 前向传播函数,输出隐层的激活概率和状态抽样
+        self._f_backward = theano.function([H], [Sp, Vp, Ss, Vs])  # 反向传播函数,输出softmax & visual的激活概率和状态抽样
 
         X = T.fmatrix('X')  # 网络的输入
         Y = T.fmatrix('Y')  # 网络的输出(期望输出)
-        V0s = X  # 显层的初始状态
-        H0p = T.nnet.sigmoid(V0s.dot(self.parameters['W']) + self.parameters['Bh'])  # 隐层的激活概率
-        H0s = (srng.uniform(H0p.shape) < H0p) + 0  # 隐层的抽样状态
-        V1p = T.nnet.sigmoid(H0s.dot(self.parameters['W'].T) + self.parameters['Bv'])  # 显层的重建激活概率
-        H1p = T.nnet.sigmoid(V1p.dot(self.parameters['W']) + self.parameters['Bh'])  # 隐层的激活概率（这里使用V1p而不是V1s得到更好的无偏抽样）
-        cost = ((V1p - Y) ** 2).sum(axis=1).mean()  # 整体重建误差
-        sampleNum = T.cast(V0s.shape[0], 'floatX')
+        V0s = X  # visual  层的初始状态
+        S0s = Y  # softmax 层的初始状态
+        H0p, H0s = forward(S0s, V0s, **self.parameters)
+        S1p, V1p, S1s, V1s = backward(H0s, **self.parameters)
+        H1p, H1s = forward(S1s, V1p, **self.parameters)
+
+        cost = (((S1p - Y) ** 2).sum(axis=1) + ((V1p - X) ** 2).sum(axis=1)).mean()  # 整体重建误差
+        sampleNum = T.cast(X.shape[0], 'floatX')
         weight_cost = 1e-4
-        grad_W = -(V0s.T.dot(H0p) - V1p.T.dot(H1p)) / sampleNum + weight_cost * self.parameters['W']  # W的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
-        grad_Bv = -(V0s - V1p).sum(axis=0).T / sampleNum  # Bv的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
-        grad_Bh = -(H0s - H1p).sum(axis=0).T / sampleNum  # Bh的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
+        grad_Wsh = -(S0s.T.dot(H0p) - S1s.T.dot(H1p)) / sampleNum + weight_cost * self.parameters[
+            'Wsh']  # Wsh的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
+        grad_Wvh = -(V0s.T.dot(H0p) - V1p.T.dot(H1p)) / sampleNum + weight_cost * self.parameters[
+            'Wvh']  # Wvh的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
+        grad_Bs = -(S0s - S1p).mean(axis=0).T  # Bs的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
+        grad_Bv = -(V0s - V1p).mean(axis=0).T  # Bv的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
+        grad_Bh = -(H0s - H1p).mean(axis=0).T  # Bh的梯度（这并非真正的梯度，而是根据CD1算法得到近似梯度）
 
         self.grad = [theano.shared(p.get_value() * 0.0, name=f'grad_{k}') for k, p in self.parameters.items()]
-        grad = [grad_W, grad_Bv, grad_Bh]  # 梯度
+        grad = [grad_Wsh, grad_Wvh, grad_Bs, grad_Bv, grad_Bh]  # 梯度
         updates = [(_g, g) for _g, g in zip(self.grad, grad)]
-        self.f_grad = theano.function([X, Y], cost, updates=updates)  # 该函数计算模型的梯度，但是不更新梯度
+        self._f_grad = theano.function([X, Y], cost, updates=updates)  # 该函数计算模型的梯度，但是不更新参数
 
     # 前向过程
-    def forward(self, S, V):
-        return self.f_foreward(S, V)
+    def f_forward(self, S, V):
+        return self._f_foreward(S, V)
 
     # 反向过程
-    def backward(self, H):
-        return self.f_backward(H)
+    def f_backward(self, H):
+        return self._f_backward(H)
+
+    # 计算梯度,梯度向量被放在self.grad(theano shared variable)中，该函数会返回目标函数的值
+    def f_grad(self, X, Y):
+        return self._f_grad(X, Y)
 
 
 if __name__ == '__main__':
     # 准备训练数据 TODO
     train_set = mnist.train_set('./data/mnist.mat')
-    allimages = train_set[0:len(train_set)][0]
-    Bv = np.mean(allimages, axis=0)
+    images, labels = train_set[0:len(train_set)]
+    Bv = np.mean(images, axis=0)
     Bv = np.log(Bv / (1 - Bv))
     Bv[Bv < -100] = -100
     Bv[Bv > +100] = +100
-    train_set.set_minibatch_size(100)
-    rbm = RBM(784, 2000)
-    rbm.initialize_parameters(Bv=Bv)
-    rbm.initialize_model()
 
-    optimizer = minimize.SGD(rbm)
+    labels = np.choose(labels.astype('int'), np.eye(10, dtype='float32'))
+    Bs = np.mean(labels, axis=0)
+    Bs = np.log(Bs / (1 - Bs))
+    Bs[Bs < -100] = -100
+    Bs[Bs > +100] = +100
+
+    train_set.set_minibatch_size(100)
+    softmax_rbm = SoftmaxRBM(10, 784, 2000)
+    softmax_rbm.initialize_parameters(Bs=Bs, Bv=Bv)
+    softmax_rbm.initialize_model()
+
+    optimizer = minimize.SGD(softmax_rbm)
     optimizer.train(train_set)

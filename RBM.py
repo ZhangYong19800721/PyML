@@ -69,8 +69,8 @@ class RBM(object):
         Hs = (srng.uniform(Hp.shape) < Hp) + 0  # 隐层抽样状态。加0是为了把一个bool矩阵转换为整数矩阵
         Vp = T.nnet.sigmoid(H.dot(self.parameters['W'].T) + self.parameters['Bv'])  # 显层的激活概率计算公式
         Vs = (srng.uniform(Vp.shape) < Vp) + 0  # 显层抽样状态。加0是为了把一个bool矩阵转换为整数矩阵
-        self.f_foreward = theano.function([V], [Hp, Hs])  # 前向传播函数,输出隐层的激活概率和状态抽样
-        self.f_backward = theano.function([H], [Vp, Vs])  # 反向传播函数,输出显层的激活概率和状态抽样
+        self._f_foreward = theano.function([V], [Hp, Hs])  # 前向传播函数,输出隐层的激活概率和状态抽样
+        self._f_backward = theano.function([H], [Vp, Vs])  # 反向传播函数,输出显层的激活概率和状态抽样
 
         X = T.fmatrix('X')  # 网络的输入
         Y = T.fmatrix('Y')  # 网络的输出(期望输出)
@@ -89,15 +89,19 @@ class RBM(object):
         self.grad = [theano.shared(p.get_value() * 0.0, name=f'grad_{k}') for k, p in self.parameters.items()]
         grad = [grad_W, grad_Bv, grad_Bh]  # 梯度
         updates=[(_g,g) for _g,g in zip(self.grad, grad)]
-        self.f_grad = theano.function([X,Y], cost, updates=updates)  # 该函数计算模型的梯度，但是不更新梯度
+        self._f_grad = theano.function([X,Y], cost, updates=updates)  # 该函数计算模型的梯度，但是不更新参数
 
     # 前向过程
-    def forward(self, V):
-        return self.f_foreward(V)
+    def f_forward(self, V):
+        return self._f_foreward(V)
 
     # 反向过程
-    def backward(self, H):
-        return self.f_backward(H)
+    def f_backward(self, H):
+        return self._f_backward(H)
+
+    # 计算梯度,梯度向量被放在self.grad(theano shared variable)中，该函数会返回目标函数的值
+    def f_grad(self,X,Y):
+        return self._f_grad(X,X)
 
 
 if __name__ == '__main__':
@@ -112,6 +116,6 @@ if __name__ == '__main__':
     rbm = RBM(784, 2000)
     rbm.initialize_parameters(Bv=Bv)
     rbm.initialize_model()
-    
+
     optimizer = minimize.SGD(rbm)
     optimizer.train(train_set)
