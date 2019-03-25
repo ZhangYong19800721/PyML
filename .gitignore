@@ -12,3 +12,4 @@ build
 *.tar.gz
 *.zip
 data
+*.ini

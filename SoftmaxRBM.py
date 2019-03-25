@@ -149,6 +149,7 @@ class SoftmaxRBM(object):
     def f_grad(self, X, Y):
         return self._f_grad(X, Y)
 
+    # 使用模型进行预测
     def predit(self, X):
         """使用模型进行分类预测"""
         P = self.parameters  # 得到模型的参数
