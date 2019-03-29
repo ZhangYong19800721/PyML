@@ -84,7 +84,8 @@ class SoftmaxRBM(object):
         # S, softmax 的状态
         # V, visual  的状态
         # P, 模型参数
-        def forward(S, V, **P):
+        def forward(S, V):
+            P = self.parameters
             SV = T.concatenate([S, V], axis=1)
             WW = T.concatenate([P['Wsh'], P['Wvh']], axis=0)
             Hp = T.nnet.sigmoid(SV.dot(WW) + P['Bh'])  # hidden 激活概率计算公式
@@ -95,7 +96,8 @@ class SoftmaxRBM(object):
         # 输入：
         # H, hidden  的状态
         # P, 模型参数
-        def backward(H, **P):
+        def backward(H):
+            P = self.parameters
             Sp = T.nnet.softmax(H.dot(P['Wsh'].T) + P['Bs'])  # softmax 激活概率计算公式
             Vp = T.nnet.sigmoid(H.dot(P['Wvh'].T) + P['Bv'])  # visual  激活概率计算公式
             CC = T.extra_ops.cumsum(Sp, axis=1) < srng.uniform((Sp.shape[0], 1))
@@ -107,8 +109,8 @@ class SoftmaxRBM(object):
         V = T.fmatrix('V')  # visual 的状态
         H = T.fmatrix('H')  # hidden 的状态
 
-        Hp, Hs = forward(S, V, **self.parameters)
-        Sp, Vp, Ss, Vs = backward(H, **self.parameters)
+        Hp, Hs = forward(S, V)
+        Sp, Vp, Ss, Vs = backward(H)
 
         self._f_foreward = theano.function([S, V], [Hp, Hs])  # 前向传播函数,输出隐层的激活概率和状态抽样
         self._f_backward = theano.function([H], [Sp, Vp, Ss, Vs])  # 反向传播函数,输出softmax & visual的激活概率和状态抽样
@@ -117,9 +119,9 @@ class SoftmaxRBM(object):
         Y = T.fmatrix('Y')  # 网络的输出(期望输出)
         V0s = X  # visual  层的初始状态
         S0s = Y  # softmax 层的初始状态
-        H0p, H0s = forward(S0s, V0s, **self.parameters)
-        S1p, V1p, S1s, V1s = backward(H0s, **self.parameters)
-        H1p, H1s = forward(S1s, V1p, **self.parameters)
+        H0p, H0s = forward(S0s, V0s)
+        S1p, V1p, S1s, V1s = backward(H0s)
+        H1p, H1s = forward(S1s, V1p)
 
         cost = (((S1p - Y) ** 2).sum(axis=1) + ((V1p - X) ** 2).sum(axis=1)).mean()  # 整体重建误差
         sampleNum = T.cast(X.shape[0], 'floatX')
