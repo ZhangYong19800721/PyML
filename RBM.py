@@ -60,12 +60,14 @@ class RBM(object):
 
     # 初始化模型
     def initialize_model(self):
-        def forward(V, **P):
+        def forward(V):
+            P = self.parameters
             Hp = T.nnet.sigmoid(V.dot(P['W']) + P['Bh'])  # 隐层的激活概率计算公式
             Hs = (srng.uniform(Hp.shape) < Hp) + 0  # 隐层抽样状态。加0是为了把一个bool矩阵转换为整数矩阵
             return Hp, Hs
 
-        def backward(H, **P):
+        def backward(H):
+            P = self.parameters
             Vp = T.nnet.sigmoid(H.dot(P['W'].T) + P['Bv'])  # 显层的激活概率计算公式
             Vs = (srng.uniform(Vp.shape) < Vp) + 0  # 显层抽样状态。加0是为了把一个bool矩阵转换为整数矩阵
             return Vp, Vs
@@ -73,17 +75,17 @@ class RBM(object):
         V = T.fmatrix('V')  # 显层的状态
         H = T.fmatrix('H')  # 隐层的状态
 
-        Hp, Hs = forward(V, **self.parameters)
-        Vp, Vs = backward(H, **self.parameters)
+        Hp, Hs = forward(V)
+        Vp, Vs = backward(H)
         self._f_foreward = theano.function([V], [Hp, Hs])  # 前向传播函数,输出隐层的激活概率和状态抽样
         self._f_backward = theano.function([H], [Vp, Vs])  # 反向传播函数,输出显层的激活概率和状态抽样
 
         X = T.fmatrix('X')  # 网络的输入
         Y = T.fmatrix('Y')  # 网络的输出(期望输出)
         V0s = X  # 显层的初始状态
-        H0p, H0s = forward(V0s, **self.parameters)
-        V1p, V1s = backward(H0s, **self.parameters)
-        H1p, H1s = forward(V1p, **self.parameters)  # 隐层的激活概率（这里使用V1p而不是V1s得到更好的无偏抽样）
+        H0p, H0s = forward(V0s)
+        V1p, V1s = backward(H0s)
+        H1p, H1s = forward(V1p)  # 隐层的激活概率（这里使用V1p而不是V1s得到更好的无偏抽样）
 
         cost = ((V1p - X) ** 2).sum(axis=1).mean()  # 整体重建误差
         sampleNum = T.cast(X.shape[0], 'floatX')
